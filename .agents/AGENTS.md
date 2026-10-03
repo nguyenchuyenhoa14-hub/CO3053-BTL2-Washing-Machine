@@ -41,6 +41,14 @@ Design, specify, implement, and rigorously verify the **Control Unit of a Coin-O
    - All timings (button debounce time, double-click window, LED blink frequencies, 30-minute cycle duration) must be defined as configurable constants/enums.
    - Zero blocking `delay()` calls in the event loop. Everything is driven by tick counters or non-blocking timer checks.
 
+5. **Branch Strategy & Privacy Discipline**:
+   - Only commit and push to branch `nguyen`. NEVER push or merge into `main` until explicitly requested by the user.
+   - Strictly keep `assignment1/` local (never stage or push `assignment1/` to the repository).
+
+6. **Priority Directive: Focus on Code Perfection First (No Report Yet)**:
+   - **DO NOT start writing or generating reports yet** (Phase 6 / `report/` is strictly deferred).
+   - Direct 100% of effort toward researching, refining, auditing, and perfecting the codebase, unit tests, hardware drivers, simulators, timing determinism, and MISRA-C compliance until the implementation is 100% flawless (10/10).
+
 ---
 
 ## 3. Directory & Artifact Structure

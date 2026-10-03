@@ -5,6 +5,13 @@
 
 ---
 
+> [!IMPORTANT]
+> **CHỈ THỊ ƯU TIÊN HÀNG ĐẦU TỪ NGƯỜI DÙNG:**
+> 1. **CHƯA CẦN LÀM BÁO CÁO (REPORT):** Tạm thời gác lại toàn bộ việc viết báo cáo LaTeX. Tập trung 100% nguồn lực nghiên cứu, phân tích tỉ mỉ, tối ưu hóa mã nguồn, thiết kế phần cứng nhúng, chống lỗi biên và kiểm thử tự động sao cho code đạt độ hoàn hảo tuyệt đối (10/10).
+> 2. **KỶ LUẬT NHÁNH GIT:** Chỉ commit và push lên nhánh `nguyen` (`origin/nguyen`). Tuyệt đối không merge/push vào nhánh `main` khi chưa có yêu cầu. Giữ nguyên tắc không push thư mục `assignment1/`.
+
+---
+
 ## 1. TỔNG QUAN YÊU CẦU ĐỀ BÀI
 
 Thiết kế và hiện thực hóa khối điều khiển (Control Unit) cho máy giặt tự động dùng tiền xu với các thành phần giao tiếp:
