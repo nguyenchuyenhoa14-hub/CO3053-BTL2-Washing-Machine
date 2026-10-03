@@ -1,0 +1,163 @@
+{
+  "version": 1,
+  "author": "HCMUT CO3053 Embedded Systems - BTL 2",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-arduino-uno", "id": "uno", "top": 180, "left": 280, "attrs": {} },
+    {
+      "type": "wokwi-lcd1602",
+      "id": "lcd",
+      "top": -40,
+      "left": 260,
+      "attrs": { "pins": "i2c" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn_run",
+      "top": 120,
+      "left": 100,
+      "attrs": { "color": "green", "label": "RUN" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn_pause",
+      "top": 190,
+      "left": 100,
+      "attrs": { "color": "yellow", "label": "PAUSE" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn_stop",
+      "top": 260,
+      "left": 100,
+      "attrs": { "color": "red", "label": "STOP" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn_c10",
+      "top": 350,
+      "left": 40,
+      "attrs": { "color": "white", "label": "10c" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn_c20",
+      "top": 350,
+      "left": 110,
+      "attrs": { "color": "white", "label": "20c" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn_c50",
+      "top": 350,
+      "left": 180,
+      "attrs": { "color": "orange", "label": "50c" }
+    },
+    {
+      "type": "wokwi-slide-switch",
+      "id": "sw_door_fault",
+      "top": 440,
+      "left": 100,
+      "attrs": { "label": "DOOR FAULT" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_rled",
+      "top": 110,
+      "left": 660,
+      "attrs": { "color": "red", "label": "RLED (Standby/Err)" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_bled",
+      "top": 170,
+      "left": 660,
+      "attrs": { "color": "blue", "label": "BLED (Ready/Run)" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_agitate",
+      "top": 240,
+      "left": 660,
+      "attrs": { "color": "green", "label": "MTR AGITATE" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_spin",
+      "top": 300,
+      "left": 660,
+      "attrs": { "color": "yellow", "label": "MTR SPIN DRY" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_drain",
+      "top": 360,
+      "left": 660,
+      "attrs": { "color": "cyan", "label": "DRAIN PUMP" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led_lock",
+      "top": 420,
+      "left": 660,
+      "attrs": { "color": "white", "label": "DOOR LOCK" }
+    },
+    { "type": "wokwi-resistor", "id": "r1", "top": 125, "left": 720, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r2", "top": 185, "left": 720, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r3", "top": 255, "left": 720, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r4", "top": 315, "left": 720, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r5", "top": 375, "left": 720, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r6", "top": 435, "left": 720, "attrs": { "value": "220" } }
+  ],
+  "connections": [
+    [ "uno:GND.1", "lcd:GND", "black", [ "v0" ] ],
+    [ "uno:5V", "lcd:VCC", "red", [ "v0" ] ],
+    [ "uno:A4", "lcd:SDA", "blue", [ "v0" ] ],
+    [ "uno:A5", "lcd:SCL", "yellow", [ "v0" ] ],
+
+    [ "uno:2", "btn_run:2.2", "green", [ "v0" ] ],
+    [ "uno:GND.2", "btn_run:1.1", "black", [ "v0" ] ],
+
+    [ "uno:3", "btn_pause:2.2", "yellow", [ "v0" ] ],
+    [ "uno:GND.2", "btn_pause:1.1", "black", [ "v0" ] ],
+
+    [ "uno:4", "btn_stop:2.2", "red", [ "v0" ] ],
+    [ "uno:GND.2", "btn_stop:1.1", "black", [ "v0" ] ],
+
+    [ "uno:5", "btn_c10:2.2", "gray", [ "v0" ] ],
+    [ "uno:GND.2", "btn_c10:1.1", "black", [ "v0" ] ],
+
+    [ "uno:6", "btn_c20:2.2", "gray", [ "v0" ] ],
+    [ "uno:GND.2", "btn_c20:1.1", "black", [ "v0" ] ],
+
+    [ "uno:7", "btn_c50:2.2", "orange", [ "v0" ] ],
+    [ "uno:GND.2", "btn_c50:1.1", "black", [ "v0" ] ],
+
+    [ "uno:8", "sw_door_fault:2", "purple", [ "v0" ] ],
+    [ "uno:GND.2", "sw_door_fault:3", "black", [ "v0" ] ],
+
+    [ "uno:9", "led_rled:A", "red", [ "v0" ] ],
+    [ "led_rled:C", "r1:1", "black", [ "v0" ] ],
+    [ "r1:2", "uno:GND.3", "black", [ "v0" ] ],
+
+    [ "uno:10", "led_bled:A", "blue", [ "v0" ] ],
+    [ "led_bled:C", "r2:1", "black", [ "v0" ] ],
+    [ "r2:2", "uno:GND.3", "black", [ "v0" ] ],
+
+    [ "uno:11", "led_agitate:A", "green", [ "v0" ] ],
+    [ "led_agitate:C", "r3:1", "black", [ "v0" ] ],
+    [ "r3:2", "uno:GND.3", "black", [ "v0" ] ],
+
+    [ "uno:12", "led_spin:A", "yellow", [ "v0" ] ],
+    [ "led_spin:C", "r4:1", "black", [ "v0" ] ],
+    [ "r4:2", "uno:GND.3", "black", [ "v0" ] ],
+
+    [ "uno:13", "led_drain:A", "cyan", [ "v0" ] ],
+    [ "led_drain:C", "r5:1", "black", [ "v0" ] ],
+    [ "r5:2", "uno:GND.3", "black", [ "v0" ] ],
+
+    [ "uno:A0", "led_lock:A", "white", [ "v0" ] ],
+    [ "led_lock:C", "r6:1", "black", [ "v0" ] ],
+    [ "r6:2", "uno:GND.3", "black", [ "v0" ] ]
+  ]
+}

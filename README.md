@@ -39,23 +39,35 @@ This repository contains the production-grade embedded C implementation, Hardwar
 
 ```text
 .
-├── Makefile                          # Build automation (make test, make sim, make demo)
+├── Makefile                          # Build automation (test, test_hal, sim, demo, stm32)
 ├── README.md                         # Project documentation
 ├── src/
 │   ├── include/
 │   │   ├── washing_machine_config.h  # Timing parameters (30 min, 50¢ threshold, double click)
-│   │   ├── hal_interfaces.h          # Hardware Abstraction Layer (LED, Motor, Valves)
+│   │   ├── hal_interfaces.h          # Hardware Abstraction Layer interfaces
 │   │   └── washing_machine_fsm.h     # Public FSM core API, enums, context struct
 │   ├── fsm/
 │   │   └── washing_machine_fsm.c     # Deterministic Moore-Mealy FSM implementation
 │   ├── hal/
-│   │   ├── mock_hal.h                # Virtual HAL recorder for unit testing
-│   │   └── mock_hal.c                # Mock hardware implementation
+│   │   ├── mock_hal.h / .c           # Virtual HAL recorder for unit testing
+│   │   ├── hal_button_engine.h / .c  # 30ms debounce & coin pulse validator engine
+│   │   ├── hal_led_blinker.h / .c    # 1.0Hz / 2.0Hz non-blocking LED & actuator guard
+│   │   └── stm32/                    # Bare-metal STM32 (ARM Cortex-M) HAL driver
+│   │       ├── stm32_compat.h        # Portable CMSIS register definitions
+│   │       ├── hal_stm32_gpio.h / .c # STM32 GPIO registers driver
+│   │       ├── hal_stm32_callbacks.h # Output callbacks bound to physical pins
+│   │       └── main_stm32.c          # STM32 SysTick 1ms super-loop entry point
 │   └── main.c                        # Bare-metal super-loop demonstration
 ├── tests/
-│   └── test_washing_machine.c        # Automated unit test suite (28 exhaustive test cases)
+│   ├── test_washing_machine.c        # Automated FSM test suite (28 test cases, 100% pass)
+│   └── test_hal_engines.c            # Automated HAL test suite (debouncing, pulses, blinkers)
 └── sim/
-    └── sim_interactive.c             # Interactive CLI simulator with live dashboard
+    ├── sim_interactive.c             # Interactive CLI simulator with live dashboard
+    └── wokwi/                        # Interactive Wokwi web simulation project
+        ├── diagram.json              # Full schematic (Uno, LCD1602, 3 buttons, 2 LEDs, 4 relays)
+        ├── sketch.ino                # Real-time embedded firmware with LCD display
+        ├── libraries.txt             # Wokwi dependencies (LiquidCrystal I2C)
+        └── wokwi.toml                # Wokwi configuration
 ```
 
 ---
@@ -111,13 +123,25 @@ Expected output:
 ============================================================
 ```
 
-### 4.2 Running the Bare-Metal Super-Loop Demo
+### 4.2 Running the Hardware HAL Engines Test Suite
+```bash
+# Verify debouncing, coin pulse validation, LED blinkers, and actuator interlock guard
+mingw32-make test_hal
+```
+
+### 4.3 Running the STM32 Bare-Metal Driver
+```bash
+# Compile and run the STM32 SysTick super-loop controller
+mingw32-make stm32
+```
+
+### 4.4 Running the Bare-Metal Super-Loop Demo
 ```bash
 # Build and execute the bare-metal super-loop demonstration
 mingw32-make demo
 ```
 
-### 4.3 Running the Interactive CLI Simulator
+### 4.5 Running the Interactive CLI Simulator
 ```bash
 # Build the interactive simulator
 mingw32-make sim
@@ -140,3 +164,7 @@ mingw32-make sim
 - `e3`: Simulate Motor Overcurrent Fault
 - `c`: Clear hardware faults and recover to STANDBY
 - `q`: Quit simulator
+
+### 4.6 Running Interactive Wokwi Web Simulation
+Open [https://wokwi.com/projects/new/arduino-uno](https://wokwi.com/projects/new/arduino-uno), paste [`sim/wokwi/diagram.json`](./sim/wokwi/diagram.json) into the diagram tab and [`sim/wokwi/sketch.ino`](./sim/wokwi/sketch.ino) into the code tab, add `LiquidCrystal I2C` library, and click **Play** to run interactive simulation in your browser!
+

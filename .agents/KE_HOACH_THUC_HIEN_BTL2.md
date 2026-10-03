@@ -155,24 +155,30 @@ mingw32-make test
 mingw32-make demo
 ```
 
-### 3. Biên dịch và bật Simulator tương tác trực quan:
+### 3. Biên dịch và bật Simulator tương tác trực quan (CLI):
 ```bash
 mingw32-make sim
 .\sim_wm.exe
 ```
-* **Các phím thao tác trong Simulator:**
-  * `1`: Đút xu 10¢
-  * `2`: Đút xu 20¢
-  * `3`: Đút xu 50¢
-  * `r`: Bấm nút RUN
-  * `p`: Bấm nút PAUSE
-  * `s`: Bấm nút STOP 1 lần (Bắt đầu cửa sổ trượt 1.5s)
-  * `ss`: Bấm đúp STOP 2 lần (Dừng cưỡng bức)
-  * `t 60`: Tua nhanh thời gian thêm 60 giây
-  * `e1`: Giả lập lỗi Cửa mở (Lid open)
-  * `e2`: Giả lập lỗi Kẹt van nước (Water timeout)
-  * `e3`: Giả lập lỗi Quá tải động cơ (Motor overcurrent)
-  * `c`: Xóa lỗi khôi phục máy về STANDBY
-  * `q`: Thoát simulator
+
+### 4. Biên dịch và kiểm thử Tầng Phần Cứng HAL (Debounce 30ms, Xung tiền xu, LED 1Hz/2Hz, Khóa an toàn):
+```bash
+mingw32-make test_hal
+```
+
+### 5. Biên dịch và kiểm thử Driver STM32 Bare-Metal (SysTick 1ms Super-Loop):
+```bash
+mingw32-make stm32
+```
+
+---
+
+## 7. MÔ PHỎNG PHẦN CỨNG NHÚNG TRỰC QUAN TRÊN TRÌNH DUYỆT (WOKWI)
+
+Dự án cung cấp gói mô phỏng nhúng trực quan 100% tại thư mục `sim/wokwi/` gồm:
+* `diagram.json`: Sơ đồ nguyên lý mạch hoàn chỉnh kết nối vi điều khiển với màn hình LCD 1602 I2C, 3 nút bấm (RUN, PAUSE, STOP), 3 nút nạp xu (10¢, 20¢, 50¢), 2 đèn LED báo trạng thái và 4 đèn Relay cơ cấu chấp hành (Động cơ giặt, Động cơ vắt, Bơm xả, Khóa cửa).
+* `sketch.ino`: Firmware nhúng điều khiển vòng lặp thời gian thực non-blocking, chống rung phím 30ms, chớp LED chuẩn 1Hz/2Hz và cập nhật LCD 1602 trực tiếp.
+* Link chạy nhanh: Mở [Wokwi Arduino Uno](https://wokwi.com/projects/new/arduino-uno), nạp file `diagram.json` và `sketch.ino` để xem mạch chạy trực tiếp trên web!
+
 
 

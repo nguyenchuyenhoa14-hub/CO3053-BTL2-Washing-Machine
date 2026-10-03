@@ -1,0 +1,2 @@
+# Wokwi Library dependencies
+LiquidCrystal I2C
