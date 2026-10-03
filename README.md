@@ -117,9 +117,11 @@ Expected output:
   [PASS] TC-26: Multi-Phase Wash Profile (Agitate -> Spin/Drain -> Complete verified)
   [PASS] TC-27: Event Acceptance Query Protocol (Deterministic event filtering across all 5 states)
   [PASS] TC-28: Cycle Sub-Phase Query & Enum Decoders (Correct phase detection throughout cycle)
+  [PASS] TC-29: Pause Across Phase Boundary (Continuous timer crosses into Spin)
+  [PASS] TC-30: MISRA-C Boundary & Corrupted Enum Resilience (100% defensive branch safety)
 
 ============================================================
- ALL 28 TESTS PASSED SUCCESSFULLY! (100% Test Coverage)
+ ALL 30 TESTS PASSED SUCCESSFULLY! (100% Specification & Transition Coverage)
 ============================================================
 ```
 

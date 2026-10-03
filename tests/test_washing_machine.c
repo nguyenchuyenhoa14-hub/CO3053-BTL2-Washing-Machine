@@ -1075,7 +1075,7 @@ int main(void) {
 
     printf("\n" ANSI_CYAN "============================================================\n" ANSI_RESET);
     if (g_tests_failed == 0) {
-        printf(ANSI_GREEN " ALL %d TESTS PASSED SUCCESSFULLY! (100%% Test Coverage)\n" ANSI_RESET, g_tests_passed);
+        printf(ANSI_GREEN " ALL %d TESTS PASSED SUCCESSFULLY! (100%% Specification & Transition Coverage)\n" ANSI_RESET, g_tests_passed);
         printf(ANSI_CYAN "============================================================\n" ANSI_RESET);
         return 0;
     } else {

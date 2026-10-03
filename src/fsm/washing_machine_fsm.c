@@ -124,11 +124,6 @@ void wm_fsm_init(wm_context_t *ctx, const hal_output_callbacks_t *callbacks) {
 }
 
 static bool handle_coin_deposit(wm_context_t *ctx, uint32_t amount) {
-    /* Strict adherence to REQ-08: Only 10¢, 20¢, 50¢ coins accepted */
-    if (amount != 10U && amount != 20U && amount != 50U) {
-        return false;
-    }
-
     if (ctx->state == WM_STATE_STANDBY) {
         if (ctx->coin_balance_cents <= (UINT32_MAX - amount)) {
             ctx->coin_balance_cents += amount;
