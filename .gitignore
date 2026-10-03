@@ -1,3 +1,7 @@
+# Local Workspace Folders (Do not push to GitHub)
+.agents/
+assignment1/
+
 # Compiled binaries & test runners
 *.exe
 *.o
