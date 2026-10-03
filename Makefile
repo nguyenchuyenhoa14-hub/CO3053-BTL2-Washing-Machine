@@ -48,6 +48,3 @@ stm32: $(SRC) $(SRC_HAL) $(SRC_STM32) src/hal/stm32/main_stm32.c
 
 clean:
 	$(RM)
-
-
-

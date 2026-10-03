@@ -429,6 +429,3 @@ const char* wm_cycle_phase_to_str(wm_cycle_phase_t phase) {
         default:                    return "UNKNOWN_PHASE";
     }
 }
-
-
-
