@@ -77,7 +77,12 @@ void hal_coin_pulse_init(hal_coin_pulse_detector_t *det, bool active_low, uint32
     det->pulse_count = 0;
     det->silence_timer_ms = 0;
     det->inter_pulse_timeout_ms = (timeout_ms > 0) ? timeout_ms : 150U;
-    det->decoded_cents = 0;
+    det->fifo_head = 0;
+    det->fifo_tail = 0;
+    det->fifo_count = 0;
+    for (uint8_t i = 0; i < HAL_COIN_FIFO_CAPACITY; ++i) {
+        det->fifo[i] = 0;
+    }
 }
 
 void hal_coin_pulse_update(hal_coin_pulse_detector_t *det, bool raw_pin_high, uint32_t delta_ms) {
@@ -93,17 +98,23 @@ void hal_coin_pulse_update(hal_coin_pulse_detector_t *det, bool raw_pin_high, ui
     } else if (det->pulse_count > 0) {
         det->silence_timer_ms += delta_ms;
         if (det->silence_timer_ms >= det->inter_pulse_timeout_ms) {
+            uint32_t coin_value = 0;
             /* Pulse train finished: decode standard denomination */
             if (det->pulse_count == 1) {
-                det->decoded_cents = 10;
+                coin_value = 10;
             } else if (det->pulse_count == 2) {
-                det->decoded_cents = 20;
+                coin_value = 20;
             } else if (det->pulse_count == 5) {
-                det->decoded_cents = 50;
-            } else {
-                /* Invalid pulse count rejected */
-                det->decoded_cents = 0;
+                coin_value = 50;
             }
+
+            /* Push to FIFO if valid and queue has space */
+            if (coin_value > 0 && det->fifo_count < HAL_COIN_FIFO_CAPACITY) {
+                det->fifo[det->fifo_head] = coin_value;
+                det->fifo_head = (uint8_t)((det->fifo_head + 1U) % HAL_COIN_FIFO_CAPACITY);
+                det->fifo_count++;
+            }
+
             det->pulse_count = 0;
             det->silence_timer_ms = 0;
         }
@@ -111,13 +122,15 @@ void hal_coin_pulse_update(hal_coin_pulse_detector_t *det, bool raw_pin_high, ui
 }
 
 uint32_t hal_coin_pulse_get_coin(hal_coin_pulse_detector_t *det) {
-    if (!det) {
+    if (!det || det->fifo_count == 0U) {
         return 0;
     }
-    if (det->decoded_cents > 0) {
-        uint32_t val = det->decoded_cents;
-        det->decoded_cents = 0;
-        return val;
-    }
-    return 0;
+    uint32_t val = det->fifo[det->fifo_tail];
+    det->fifo_tail = (uint8_t)((det->fifo_tail + 1U) % HAL_COIN_FIFO_CAPACITY);
+    det->fifo_count--;
+    return val;
+}
+
+uint8_t hal_coin_pulse_available(const hal_coin_pulse_detector_t *det) {
+    return det ? det->fifo_count : 0U;
 }

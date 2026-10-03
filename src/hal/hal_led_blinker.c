@@ -93,5 +93,15 @@ bool hal_actuator_is_safe(const hal_actuator_guard_t *guard) {
         return false;
     }
 
+    /* Safety Rule 3: Water inlet valve must NEVER be open during high-speed spin dry */
+    if (guard->motor == HAL_MOTOR_SPIN && guard->water_valve) {
+        return false;
+    }
+
+    /* Safety Rule 4: Water inlet valve and drain pump must NEVER run simultaneously */
+    if (guard->water_valve && guard->drain_pump) {
+        return false;
+    }
+
     return true;
 }

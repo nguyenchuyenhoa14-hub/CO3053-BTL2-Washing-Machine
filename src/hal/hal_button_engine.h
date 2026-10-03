@@ -30,17 +30,23 @@ typedef struct {
     bool released_event;        /**< Latch for release transition */
 } hal_button_t;
 
+#define HAL_COIN_FIFO_CAPACITY  4U
+
 /**
  * @brief Pulse-train coin validator decoder
  * @details Decodes multi-pulse signals from commercial coin acceptors:
  *          1 pulse = 10¢, 2 pulses = 20¢, 5 pulses = 50¢.
+ *          Maintains an internal 4-coin FIFO queue to guarantee zero coin drop during burst deposits.
  */
 typedef struct {
     hal_button_t pulse_input;   /**< Debounced pulse pin */
     uint32_t pulse_count;       /**< Accumulated pulses in current train */
     uint32_t silence_timer_ms;  /**< Milliseconds since last pulse */
     uint32_t inter_pulse_timeout_ms; /**< Timeout window to finalize coin (e.g. 150ms) */
-    uint32_t decoded_cents;     /**< Latch of decoded coin amount in cents (10, 20, 50) */
+    uint32_t fifo[HAL_COIN_FIFO_CAPACITY]; /**< Circular FIFO buffer of decoded coin denominations */
+    uint8_t fifo_head;          /**< Write index for incoming validated coins */
+    uint8_t fifo_tail;          /**< Read index for application retrieval */
+    uint8_t fifo_count;         /**< Number of pending coins in queue */
 } hal_coin_pulse_detector_t;
 
 /**
@@ -96,11 +102,18 @@ void hal_coin_pulse_init(hal_coin_pulse_detector_t *det, bool active_low, uint32
 void hal_coin_pulse_update(hal_coin_pulse_detector_t *det, bool raw_pin_high, uint32_t delta_ms);
 
 /**
- * @brief Read and clear any newly decoded coin denomination
+ * @brief Read and clear the oldest decoded coin from FIFO
  * @param det Pointer to detector structure
- * @return 10, 20, 50 if coin completed; 0 if none
+ * @return 10, 20, 50 if coin completed; 0 if queue is empty
  */
 uint32_t hal_coin_pulse_get_coin(hal_coin_pulse_detector_t *det);
+
+/**
+ * @brief Query the number of validated coins currently pending in FIFO
+ * @param det Pointer to detector structure
+ * @return Count of coins (0 to HAL_COIN_FIFO_CAPACITY)
+ */
+uint8_t hal_coin_pulse_available(const hal_coin_pulse_detector_t *det);
 
 #ifdef __cplusplus
 }

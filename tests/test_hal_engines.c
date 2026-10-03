@@ -191,7 +191,19 @@ static void test_actuator_interlock_guard(void) {
 
     /* Case E: Motor SPIN with door LOCKED and Drain Pump ON -> Safe */
     guard.drain_pump = true;
+    guard.water_valve = false;
     TEST_ASSERT(hal_actuator_is_safe(&guard), "Spin dry with door locked and pump on is safe");
+
+    /* Case F: Water valve open during high-speed spin -> DANGEROUS */
+    guard.water_valve = true;
+    TEST_ASSERT(!hal_actuator_is_safe(&guard), "Water valve open during high-speed spin is UNSAFE");
+
+    /* Case G: Water valve and Drain Pump concurrently active -> DANGEROUS */
+    guard.motor = HAL_MOTOR_OFF;
+    guard.door_lock = false;
+    guard.water_valve = true;
+    guard.drain_pump = true;
+    TEST_ASSERT(!hal_actuator_is_safe(&guard), "Water valve and drain pump simultaneous active is UNSAFE");
 
     /* NULL check */
     TEST_ASSERT(!hal_actuator_is_safe(NULL), "NULL guard returns false");
@@ -200,7 +212,60 @@ static void test_actuator_interlock_guard(void) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Test 5: Comprehensive NULL Pointer Resilience across all HAL APIs          */
+/* Test 5: Coin Pulse FIFO Queue & Burst Insertion Resilience                 */
+/* -------------------------------------------------------------------------- */
+static void test_coin_pulse_fifo_burst_queue(void) {
+    hal_coin_pulse_detector_t det;
+    hal_coin_pulse_init(&det, true, 150);
+
+    #define SEND_PULSE_FAST() do { \
+        for (int ms = 0; ms < 30; ms++) { hal_coin_pulse_update(&det, false, 1); } \
+        for (int ms = 0; ms < 30; ms++) { hal_coin_pulse_update(&det, true, 1); } \
+    } while(0)
+
+    #define ADVANCE_SILENCE_FAST(ms_count) do { \
+        for (int ms = 0; ms < ms_count; ms++) { hal_coin_pulse_update(&det, true, 1); } \
+    } while(0)
+
+    TEST_ASSERT(hal_coin_pulse_available(&det) == 0, "Initial FIFO is empty");
+
+    /* Rapid Burst Coin 1: 10¢ (1 pulse) */
+    SEND_PULSE_FAST();
+    ADVANCE_SILENCE_FAST(160);
+
+    /* Rapid Burst Coin 2: 20¢ (2 pulses) */
+    SEND_PULSE_FAST();
+    ADVANCE_SILENCE_FAST(40);
+    SEND_PULSE_FAST();
+    ADVANCE_SILENCE_FAST(160);
+
+    /* Rapid Burst Coin 3: 50¢ (5 pulses) */
+    for (int p = 0; p < 5; p++) {
+        SEND_PULSE_FAST();
+        ADVANCE_SILENCE_FAST(30);
+    }
+    ADVANCE_SILENCE_FAST(160);
+
+    /* Verify all 3 coins queued in FIFO without drops */
+    TEST_ASSERT(hal_coin_pulse_available(&det) == 3, "3 coins queued in FIFO");
+
+    /* Dequeue sequentially */
+    TEST_ASSERT(hal_coin_pulse_get_coin(&det) == 10, "1st queued coin is 10¢");
+    TEST_ASSERT(hal_coin_pulse_available(&det) == 2, "2 coins remain in FIFO");
+
+    TEST_ASSERT(hal_coin_pulse_get_coin(&det) == 20, "2nd queued coin is 20¢");
+    TEST_ASSERT(hal_coin_pulse_available(&det) == 1, "1 coin remains in FIFO");
+
+    TEST_ASSERT(hal_coin_pulse_get_coin(&det) == 50, "3rd queued coin is 50¢");
+    TEST_ASSERT(hal_coin_pulse_available(&det) == 0, "FIFO is now completely drained");
+
+    TEST_ASSERT(hal_coin_pulse_get_coin(&det) == 0, "Empty FIFO returns 0");
+
+    TEST_PASS("HAL-05: Coin Pulse FIFO Queue (Burst coin insertion without event drops)");
+}
+
+/* -------------------------------------------------------------------------- */
+/* Test 6: Comprehensive NULL Pointer Resilience across all HAL APIs          */
 /* -------------------------------------------------------------------------- */
 static void test_hal_null_pointer_resilience(void) {
     /* Button engine NULL safety */
@@ -214,6 +279,7 @@ static void test_hal_null_pointer_resilience(void) {
     hal_coin_pulse_init(NULL, true, 150);
     hal_coin_pulse_update(NULL, true, 1);
     TEST_ASSERT(hal_coin_pulse_get_coin(NULL) == 0, "NULL get_coin returns 0");
+    TEST_ASSERT(hal_coin_pulse_available(NULL) == 0, "NULL available returns 0");
 
     /* LED blinker NULL safety */
     hal_led_blinker_init(NULL, true);
@@ -224,7 +290,7 @@ static void test_hal_null_pointer_resilience(void) {
     /* Actuator guard NULL safety */
     TEST_ASSERT(!hal_actuator_is_safe(NULL), "NULL actuator guard returns false");
 
-    TEST_PASS("HAL-05: NULL Pointer Resilience (Zero crash across all HAL API functions)");
+    TEST_PASS("HAL-06: NULL Pointer Resilience (Zero crash across all HAL API functions)");
 }
 
 /* -------------------------------------------------------------------------- */
@@ -240,6 +306,7 @@ int main(void) {
     test_coin_pulse_detector();
     test_led_blinker_waveforms();
     test_actuator_interlock_guard();
+    test_coin_pulse_fifo_burst_queue();
     test_hal_null_pointer_resilience();
 
     printf("\n" ANSI_CYAN "============================================================\n" ANSI_RESET);

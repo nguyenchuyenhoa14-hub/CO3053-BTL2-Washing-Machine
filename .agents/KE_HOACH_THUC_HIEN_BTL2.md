@@ -141,6 +141,17 @@ Hệ thống được thiết kế theo mô hình chuẩn 5 trạng thái:
 | **TC-27** | **Lọc sự kiện hợp lệ (Event Acceptance Protocol)** | Hàm `wm_fsm_can_accept_event()` sàng lọc chặt chẽ sự kiện hợp lệ/không hợp lệ trên toàn bộ 5 trạng thái FSM. | **PASS** |
 | **TC-28** | **Truy vấn phân pha chu trình (Cycle Sub-Phase Query)** | Nhận diện chính xác pha `IDLE`, `WASH_AGITATE` và `FINAL_SPIN` kèm bộ giải mã chuỗi trực quan. | **PASS** |
 
+### Bộ Kiểm Thử Tầng Phần Cứng HAL (HAL Engines Suite - 6 Tests)
+
+| Mã Kiểm Thử | Tên Kịch Bản | Hành Vi & Tiêu Chí Kiểm Tra Thực Tế | Kết Quả |
+| :--- | :--- | :--- | :---: |
+| **HAL-01** | **Chống Rung Phím Bấm (30ms Debounce)** | Xung nhiễu 10ms bị lọc bỏ hoàn toàn; Nhấn giữ liên tục 30ms nhận diện falling-edge; Nhả phím 30ms nhận diện rising-edge. | **PASS** |
+| **HAL-02** | **Bộ Giải Mã Xung Tiền Xu (Coin Pulse Validator)** | Giải mã chuẩn công nghiệp: 1 xung = 10¢, 2 xung = 20¢, 5 xung = 50¢; 3 xung bị loại bỏ do không hợp lệ. | **PASS** |
+| **HAL-03** | **Máy Phát Dạng Sóng LED (Non-blocking Blinkers)** | Định thời modulo chính xác: 1.0 Hz (500ms ON / 500ms OFF) cho BLED; 2.0 Hz (250ms ON / 250ms OFF) cho RLED. | **PASS** |
+| **HAL-04** | **Khóa Liên Động Cơ Cấu Chấp Hành (Actuator Interlock)** | Ngăn chặn động cơ quay khi cửa mở; Bắt buộc bật bơm xả khi vắt cao tốc; Cấm mở van cấp nước khi đang vắt; Cấm mở van cấp nước và bật bơm xả đồng thời. | **PASS** |
+| **HAL-05** | **Hàng Đợi FIFO Nạp Xu Liên Tiếp (Coin Burst Queue)** | Hàng đợi vòng tròn (Ring buffer FIFO) 4 phần tử lưu trữ trọn vẹn chuỗi nạp xu liên tiếp (10¢ + 20¢ + 50¢) mà không bị mất sự kiện. | **PASS** |
+| **HAL-06** | **Kháng Lỗi Con Trỏ NULL Toàn Diện (HAL API Robustness)** | Truyền `NULL` vào toàn bộ 13 hàm API thuộc tầng HAL $\rightarrow$ Hệ thống an toàn 100%, không bị crash hoặc segmentation fault. | **PASS** |
+
 ---
 
 ## 6. HƯỚNG DẪN THỰC THI & SỬ DỤNG

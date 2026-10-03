@@ -356,34 +356,37 @@ static void dispatch_event(wm_event_t evt) {
 
 /* --- LCD Refresh Engine --- */
 static void update_lcd(void) {
+    char line1[17];
+    char line2[17];
+
     lcd.setCursor(0, 0);
     switch (g_wm.state) {
-        case WM_STATE_STANDBY:
-            lcd.print("ST:STANDBY   $0.");
-            if (g_wm.balance_cents < 10) lcd.print("0");
-            lcd.print(g_wm.balance_cents);
+        case WM_STATE_STANDBY: {
+            uint32_t d = g_wm.balance_cents / 100U;
+            uint32_t c = g_wm.balance_cents % 100U;
+            snprintf(line1, sizeof(line1), "STANDBY    $%lu.%02lu", (unsigned long)d, (unsigned long)c);
+            lcd.print(line1);
             break;
+        }
 
-        case WM_STATE_READY:
-            lcd.print("ST:READY     $");
-            lcd.print(g_wm.balance_cents / 100);
-            lcd.print(".");
-            if ((g_wm.balance_cents % 100) < 10) lcd.print("0");
-            lcd.print(g_wm.balance_cents % 100);
+        case WM_STATE_READY: {
+            uint32_t d = g_wm.balance_cents / 100U;
+            uint32_t c = g_wm.balance_cents % 100U;
+            const char *hdr = (g_wm.stop_press_count > 0) ? "STOP?     " : "READY     ";
+            snprintf(line1, sizeof(line1), "%s$%lu.%02lu", hdr, (unsigned long)d, (unsigned long)c);
+            lcd.print(line1);
             break;
+        }
 
         case WM_STATE_RUNNING:
         case WM_STATE_PAUSED: {
-            uint32_t m = g_wm.remaining_sec / 60;
-            uint32_t s = g_wm.remaining_sec % 60;
-            lcd.print(g_wm.state == WM_STATE_RUNNING ? "RUN  " : "PAUS ");
-            if (m < 10) lcd.print("0");
-            lcd.print(m);
-            lcd.print(":");
-            if (s < 10) lcd.print("0");
-            lcd.print(s);
-            lcd.print(" [");
-            lcd.print(g_wm.motor == HAL_MOTOR_SPIN ? "SPN]" : "WSH]");
+            uint32_t m = g_wm.remaining_sec / 60U;
+            uint32_t s = g_wm.remaining_sec % 60U;
+            const char *hdr = (g_wm.stop_press_count > 0) ? "STP? " :
+                              (g_wm.state == WM_STATE_RUNNING ? "RUN  " : "PAUS ");
+            const char *sub = (g_wm.motor == HAL_MOTOR_SPIN) ? "SPN]" : "WSH]";
+            snprintf(line1, sizeof(line1), "%s%02lu:%02lu [%s", hdr, (unsigned long)m, (unsigned long)s, sub);
+            lcd.print(line1);
             break;
         }
 
@@ -396,13 +399,13 @@ static void update_lcd(void) {
     if (g_wm.state == WM_STATE_ERROR) {
         lcd.print("CLOSE LID & REST");
     } else {
-        lcd.print("M:");
-        lcd.print(g_wm.motor == HAL_MOTOR_AGITATE ? "AGIT " :
-                  g_wm.motor == HAL_MOTOR_SPIN    ? "SPIN " : "OFF  ");
-        lcd.print("P:");
-        lcd.print(g_wm.drain_pump ? "1 " : "0 ");
-        lcd.print("LCK:");
-        lcd.print(g_wm.door_lock ? "1" : "0");
+        const char *m_str = (g_wm.motor == HAL_MOTOR_AGITATE) ? "AGIT " :
+                            (g_wm.motor == HAL_MOTOR_SPIN)    ? "SPIN " : "OFF  ";
+        snprintf(line2, sizeof(line2), "M:%sP:%d LCK:%d",
+                 m_str,
+                 g_wm.drain_pump ? 1 : 0,
+                 g_wm.door_lock ? 1 : 0);
+        lcd.print(line2);
     }
 }
 
