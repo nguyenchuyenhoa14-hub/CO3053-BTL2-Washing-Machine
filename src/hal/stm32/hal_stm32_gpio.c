@@ -38,6 +38,10 @@ void stm32_gpio_init(void) {
     GPIOB->BRR = (1U << STM32_PIN_RLED) | (1U << STM32_PIN_BLED) |
                  (1U << STM32_PIN_MTR_AGITATE) | (1U << STM32_PIN_MTR_SPIN) |
                  (1U << STM32_PIN_DRAIN_PUMP) | (1U << STM32_PIN_DOOR_LOCK);
+#ifndef __arm__
+    GPIOA->IDR = 0xFFFFU; /* Initial state with pull-ups reads HIGH */
+    GPIOB->ODR = 0x0000U; /* Initial outputs LOW */
+#endif
 }
 
 bool stm32_gpio_read(GPIO_TypeDef *port, uint32_t pin) {
@@ -53,7 +57,13 @@ void stm32_gpio_write(GPIO_TypeDef *port, uint32_t pin, bool level) {
     }
     if (level) {
         port->BSRR = (1U << pin);
+#ifndef __arm__
+        port->ODR |= (1U << pin);
+#endif
     } else {
         port->BRR = (1U << pin);
+#ifndef __arm__
+        port->ODR &= ~(1U << pin);
+#endif
     }
 }

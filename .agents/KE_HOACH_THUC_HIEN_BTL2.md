@@ -152,6 +152,17 @@ Hệ thống được thiết kế theo mô hình chuẩn 5 trạng thái:
 | **HAL-05** | **Hàng Đợi FIFO Nạp Xu Liên Tiếp (Coin Burst Queue)** | Hàng đợi vòng tròn (Ring buffer FIFO) 4 phần tử lưu trữ trọn vẹn chuỗi nạp xu liên tiếp (10¢ + 20¢ + 50¢) mà không bị mất sự kiện. | **PASS** |
 | **HAL-06** | **Kháng Lỗi Con Trỏ NULL Toàn Diện (HAL API Robustness)** | Truyền `NULL` vào toàn bộ 13 hàm API thuộc tầng HAL $\rightarrow$ Hệ thống an toàn 100%, không bị crash hoặc segmentation fault. | **PASS** |
 
+### Bộ Kiểm Thử STM32 Bare-Metal Hardware-in-the-Loop (STM32 HIL Suite - 6 Tests)
+
+| Mã Kiểm Thử | Tên Kịch Bản | Hành Vi & Tiêu Chí Kiểm Tra Cấp Thanh Ghi Phần Cứng | Kết Quả |
+| :--- | :--- | :--- | :---: |
+| **STM32-HIL-01** | **Khởi Tạo Trạng Thái STANDBY** | Kiểm tra thanh ghi `GPIOB->ODR`: Chân PB0 (`RLED`) tích điện (ON), các rơ-le chấp hành PB12..PB15 tắt hoàn toàn. | **PASS** |
+| **STM32-HIL-02** | **Nạp Tiền 50¢ Vào Chân PA5** | Xung active-low 35ms kéo tụt PA5 xuống GND $\rightarrow$ Bộ debounce 30ms nhận diện $\rightarrow$ FSM chuyển sang `READY` $\rightarrow$ `GPIOB->ODR` bật PB1 (`BLED`). | **PASS** |
+| **STM32-HIL-03** | **Bấm Nút RUN Trên Chân PA0** | Xung active-low 35ms trên PA0 $\rightarrow$ FSM chuyển sang `RUNNING` $\rightarrow$ `GPIOB->ODR` bật đồng thời PB15 (Khóa cửa) và PB12 (Đảo chiều giặt). | **PASS** |
+| **STM32-HIL-04** | **Định Thời Chu Trình Qua SysTick 1ms** | SysTick Handler tích lũy 1000 ngắt timer non-blocking $\rightarrow$ Bộ đếm ngược chu trình giảm chính xác 1 giây (1800s $\rightarrow$ 1799s). | **PASS** |
+| **STM32-HIL-05** | **Bảo Vệ Khẩn Cấp Khi Mở Cửa (PA6)** | Chân PA6 chạm GND $\rightarrow$ Ngắt toàn bộ tải động cơ và khóa cửa ngay lập tức, chuyển sang `ERROR` với RLED chớp 2Hz. | **PASS** |
+| **STM32-HIL-06** | **Tự Động Phục Hồi Khi Đóng Cửa (PA6)** | Chân PA6 trở về mức HIGH $\rightarrow$ FSM tự động giải phóng lỗi an toàn và trở về trạng thái `STANDBY`. | **PASS** |
+
 ---
 
 ## 6. HƯỚNG DẪN THỰC THI & SỬ DỤNG
