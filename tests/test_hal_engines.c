@@ -66,7 +66,12 @@ static void test_button_debouncer_glitch_rejection(void) {
     TEST_ASSERT(hal_button_was_released(&btn), "Release event latched");
     TEST_ASSERT(!hal_button_was_released(&btn), "Release event cleared on read");
 
-    TEST_PASS("HAL-01: Button Debounce (30ms glitch rejection and edge detection verified)");
+    /* 4. Arithmetic overflow safety (delta_ms = UINT32_MAX) */
+    hal_button_init(&btn, true);
+    hal_button_update(&btn, false, UINT32_MAX);
+    TEST_ASSERT(hal_button_is_pressed(&btn), "Massive delta_ms saturates to pressed safely without wrap-around");
+
+    TEST_PASS("HAL-01: Button Debounce (30ms glitch rejection, overflow defense and edge detection)");
 }
 
 /* -------------------------------------------------------------------------- */

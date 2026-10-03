@@ -981,6 +981,59 @@ static void test_tc29_pause_across_phase_boundary_transition(void) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* TC-30: MISRA-C Boundary & Corrupted Enum Resilience                       */
+/* -------------------------------------------------------------------------- */
+static void test_tc30_misra_c_boundary_and_corrupted_enum_resilience(void) {
+    mock_hal_reset();
+    hal_output_callbacks_t cbs = mock_hal_get_callbacks();
+    wm_context_t ctx;
+    wm_fsm_init(&ctx, &cbs);
+
+    /* 1. Invalid event enum dispatched: must safely return false */
+    TEST_ASSERT(!wm_fsm_dispatch_event(&ctx, (wm_event_t)999), "Invalid event returns false");
+    TEST_ASSERT(!wm_fsm_can_accept_event(&ctx, (wm_event_t)999), "Invalid event cannot be accepted");
+
+    /* 2. Corrupted state enum in context: must hit default branch safely */
+    ctx.state = (wm_state_t)999;
+    TEST_ASSERT(!wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_RUN), "Corrupted state rejects event");
+    TEST_ASSERT(!wm_fsm_can_accept_event(&ctx, WM_EVT_COIN_10), "Corrupted state rejects acceptance");
+    TEST_ASSERT(strcmp(wm_state_to_str(ctx.state), "UNKNOWN") == 0, "Corrupted state decodes to UNKNOWN");
+    TEST_ASSERT(strcmp(wm_event_to_str((wm_event_t)999), "UNKNOWN_EVENT") == 0, "Corrupted event decodes to UNKNOWN_EVENT");
+    TEST_ASSERT(strcmp(wm_cycle_phase_to_str((wm_cycle_phase_t)999), "UNKNOWN_PHASE") == 0, "Corrupted phase decodes to UNKNOWN_PHASE");
+
+    /* 3. Full operational cycle with 100% NULL callbacks (Zero hardware dependency) */
+    wm_context_t ctx_null_cb;
+    wm_fsm_init(&ctx_null_cb, NULL);
+    TEST_ASSERT(ctx_null_cb.state == WM_STATE_STANDBY, "Null callbacks init to STANDBY");
+
+    /* STANDBY -> READY */
+    TEST_ASSERT(wm_fsm_dispatch_event(&ctx_null_cb, WM_EVT_COIN_50), "Accepts 50c with null callbacks");
+    TEST_ASSERT(ctx_null_cb.state == WM_STATE_READY, "Transitions to READY with null callbacks");
+
+    /* READY -> RUNNING */
+    TEST_ASSERT(wm_fsm_dispatch_event(&ctx_null_cb, WM_EVT_BTN_RUN), "Runs with null callbacks");
+    TEST_ASSERT(ctx_null_cb.state == WM_STATE_RUNNING, "Transitions to RUNNING with null callbacks");
+    wm_fsm_tick_1s(&ctx_null_cb);
+
+    /* RUNNING -> PAUSED */
+    TEST_ASSERT(wm_fsm_dispatch_event(&ctx_null_cb, WM_EVT_BTN_PAUSE), "Pauses with null callbacks");
+    TEST_ASSERT(ctx_null_cb.state == WM_STATE_PAUSED, "Transitions to PAUSED with null callbacks");
+
+    /* Double STOP in PAUSED -> STANDBY */
+    wm_fsm_dispatch_event(&ctx_null_cb, WM_EVT_BTN_STOP);
+    wm_fsm_dispatch_event(&ctx_null_cb, WM_EVT_BTN_STOP);
+    TEST_ASSERT(ctx_null_cb.state == WM_STATE_STANDBY, "Force stops with null callbacks");
+
+    /* Fault trigger & recovery with null callbacks */
+    wm_fsm_trigger_fault(&ctx_null_cb, WM_FAULT_DOOR_OPEN);
+    TEST_ASSERT(ctx_null_cb.state == WM_STATE_ERROR, "Faults with null callbacks");
+    wm_fsm_clear_fault(&ctx_null_cb);
+    TEST_ASSERT(ctx_null_cb.state == WM_STATE_STANDBY, "Recovers with null callbacks");
+
+    TEST_PASS("TC-30: MISRA-C Boundary & Corrupted Enum Resilience (100% defensive branch safety)");
+}
+
+/* -------------------------------------------------------------------------- */
 /* Main Test Runner                                                          */
 /* -------------------------------------------------------------------------- */
 int main(void) {
@@ -1018,6 +1071,7 @@ int main(void) {
     test_tc27_event_acceptance_query_protocol();
     test_tc28_cycle_sub_phase_query();
     test_tc29_pause_across_phase_boundary_transition();
+    test_tc30_misra_c_boundary_and_corrupted_enum_resilience();
 
     printf("\n" ANSI_CYAN "============================================================\n" ANSI_RESET);
     if (g_tests_failed == 0) {

@@ -35,6 +35,12 @@ static void cb_set_motor(hal_motor_state_t state) {
             stm32_gpio_write(GPIOB, STM32_PIN_MTR_AGITATE, false); /* Interlock guard */
             stm32_gpio_write(GPIOB, STM32_PIN_MTR_SPIN, true);
             break;
+
+        default:
+            /* Defensive fallback: de-energize all motor windings */
+            stm32_gpio_write(GPIOB, STM32_PIN_MTR_AGITATE, false);
+            stm32_gpio_write(GPIOB, STM32_PIN_MTR_SPIN, false);
+            break;
     }
 }
 

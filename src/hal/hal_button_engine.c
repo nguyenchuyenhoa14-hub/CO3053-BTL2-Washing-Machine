@@ -26,7 +26,11 @@ void hal_button_update(hal_button_t *btn, bool raw_pin_high, uint32_t delta_ms) 
     bool current_pressed = btn->active_low ? (!raw_pin_high) : (raw_pin_high);
 
     if (current_pressed != btn->debounced_state) {
-        btn->debounce_counter += delta_ms;
+        if (delta_ms > (UINT32_MAX - btn->debounce_counter)) {
+            btn->debounce_counter = HAL_DEBOUNCE_DEFAULT_MS;
+        } else {
+            btn->debounce_counter += delta_ms;
+        }
         if (btn->debounce_counter >= HAL_DEBOUNCE_DEFAULT_MS) {
             btn->debounced_state = current_pressed;
             btn->debounce_counter = 0;
@@ -96,7 +100,11 @@ void hal_coin_pulse_update(hal_coin_pulse_detector_t *det, bool raw_pin_high, ui
         det->pulse_count++;
         det->silence_timer_ms = 0;
     } else if (det->pulse_count > 0) {
-        det->silence_timer_ms += delta_ms;
+        if (delta_ms > (UINT32_MAX - det->silence_timer_ms)) {
+            det->silence_timer_ms = det->inter_pulse_timeout_ms;
+        } else {
+            det->silence_timer_ms += delta_ms;
+        }
         if (det->silence_timer_ms >= det->inter_pulse_timeout_ms) {
             uint32_t coin_value = 0;
             /* Pulse train finished: decode standard denomination */

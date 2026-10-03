@@ -58,13 +58,17 @@ void hal_led_blinker_set_mode(hal_led_blinker_t *blinker, hal_led_state_t mode) 
 }
 
 void hal_led_blinker_tick_ms(hal_led_blinker_t *blinker, uint32_t delta_ms) {
-    if (!blinker) {
+    if (!blinker || blinker->half_period_ms == 0U) {
         return;
     }
 
     if (blinker->mode == HAL_LED_BLINK_1HZ || blinker->mode == HAL_LED_BLINK_2HZ) {
+        /* Guard against arithmetic wrap-around under extreme delta_ms */
+        if (delta_ms > (UINT32_MAX - blinker->phase_timer_ms)) {
+            delta_ms %= blinker->half_period_ms;
+        }
         blinker->phase_timer_ms += delta_ms;
-        if (blinker->half_period_ms > 0 && blinker->phase_timer_ms >= blinker->half_period_ms) {
+        if (blinker->phase_timer_ms >= blinker->half_period_ms) {
             uint32_t toggles = blinker->phase_timer_ms / blinker->half_period_ms;
             if ((toggles & 1U) != 0U) {
                 blinker->output_level = !blinker->output_level;

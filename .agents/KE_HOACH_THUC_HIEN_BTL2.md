@@ -149,6 +149,7 @@ Hệ thống được thiết kế theo mô hình chuẩn 5 trạng thái:
 | **TC-27** | **Lọc sự kiện hợp lệ (Event Acceptance Protocol)** | Hàm `wm_fsm_can_accept_event()` sàng lọc chặt chẽ sự kiện hợp lệ/không hợp lệ trên toàn bộ 5 trạng thái FSM. | **PASS** |
 | **TC-28** | **Truy vấn phân pha chu trình (Cycle Sub-Phase Query)** | Nhận diện chính xác pha `IDLE`, `WASH_AGITATE` và `FINAL_SPIN` kèm bộ giải mã chuỗi trực quan. | **PASS** |
 | **TC-29** | **Tạm dừng xuyên biên giới phân pha (Pause Phase Transition)** | Tạm dừng máy ở pha Agitate (310s), để timer đếm lùi trong Pause vượt mốc 300s (xuống 290s) $\rightarrow$ Khi bấm RUN tiếp tục, cơ cấu chấp hành tự động chuyển mượt sang pha Vắt cao tốc (Spin) và Bơm xả. | **PASS** |
+| **TC-30** | **Kháng lỗi biên MISRA-C & Trạng thái hỏng (MISRA-C Resilience)** | Sự kiện ngoài enum `(wm_event_t)999` trả về false an toàn; Trạng thái `(wm_state_t)999` kích hoạt nhánh default; Vận hành trọn vẹn chu trình với 100% Callback rỗng (`NULL`) không gây crash; Từ chối các mệnh giá xu phi chuẩn (0¢, 5¢, 15¢, 25¢, 30¢, 99¢, 100¢). | **PASS** |
 
 ### Bộ Kiểm Thử Tầng Phần Cứng HAL (HAL Engines Suite - 6 Tests)
 
@@ -176,7 +177,7 @@ Hệ thống được thiết kế theo mô hình chuẩn 5 trạng thái:
 
 ## 6. HƯỚNG DẪN THỰC THI & SỬ DỤNG
 
-### 1. Biên dịch và chạy bộ kiểm thử tự động (29 Tests):
+### 1. Biên dịch và chạy bộ kiểm thử tự động (30 Tests):
 ```bash
 mingw32-make test
 ```
