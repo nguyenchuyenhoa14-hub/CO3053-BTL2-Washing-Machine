@@ -812,6 +812,117 @@ static void test_tc26_multi_phase_wash_profile(void) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* TC-27: Event Acceptance Query Protocol (wm_fsm_can_accept_event)           */
+/* -------------------------------------------------------------------------- */
+static void test_tc27_event_acceptance_query_protocol(void) {
+    mock_hal_reset();
+    hal_output_callbacks_t cbs = mock_hal_get_callbacks();
+    wm_context_t ctx;
+    wm_fsm_init(&ctx, &cbs);
+
+    /* NULL context safety */
+    TEST_ASSERT(!wm_fsm_can_accept_event(NULL, WM_EVT_COIN_10), "NULL context rejects events");
+
+    /* 1. STANDBY State */
+    TEST_ASSERT(ctx.state == WM_STATE_STANDBY, "State is STANDBY");
+    TEST_ASSERT(wm_fsm_can_accept_event(&ctx, WM_EVT_COIN_10), "STANDBY accepts COIN_10");
+    TEST_ASSERT(wm_fsm_can_accept_event(&ctx, WM_EVT_COIN_20), "STANDBY accepts COIN_20");
+    TEST_ASSERT(wm_fsm_can_accept_event(&ctx, WM_EVT_COIN_50), "STANDBY accepts COIN_50");
+    TEST_ASSERT(!wm_fsm_can_accept_event(&ctx, WM_EVT_BTN_RUN), "STANDBY rejects RUN");
+    TEST_ASSERT(!wm_fsm_can_accept_event(&ctx, WM_EVT_BTN_PAUSE), "STANDBY rejects PAUSE");
+    TEST_ASSERT(!wm_fsm_can_accept_event(&ctx, WM_EVT_BTN_STOP), "STANDBY rejects STOP");
+    TEST_ASSERT(wm_fsm_can_accept_event(&ctx, WM_EVT_FAULT_OCCURRED), "STANDBY accepts FAULT");
+    TEST_ASSERT(!wm_fsm_can_accept_event(&ctx, WM_EVT_FAULT_CLEARED), "STANDBY rejects FAULT_CLEARED");
+
+    /* 2. READY State */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_50);
+    TEST_ASSERT(ctx.state == WM_STATE_READY, "State is READY");
+    TEST_ASSERT(wm_fsm_can_accept_event(&ctx, WM_EVT_COIN_10), "READY accepts additional coins");
+    TEST_ASSERT(wm_fsm_can_accept_event(&ctx, WM_EVT_BTN_RUN), "READY accepts RUN");
+    TEST_ASSERT(wm_fsm_can_accept_event(&ctx, WM_EVT_BTN_STOP), "READY accepts STOP");
+    TEST_ASSERT(!wm_fsm_can_accept_event(&ctx, WM_EVT_BTN_PAUSE), "READY rejects PAUSE");
+
+    /* 3. RUNNING State */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_RUN);
+    TEST_ASSERT(ctx.state == WM_STATE_RUNNING, "State is RUNNING");
+    TEST_ASSERT(!wm_fsm_can_accept_event(&ctx, WM_EVT_COIN_10), "RUNNING rejects coins");
+    TEST_ASSERT(!wm_fsm_can_accept_event(&ctx, WM_EVT_BTN_RUN), "RUNNING rejects RUN");
+    TEST_ASSERT(wm_fsm_can_accept_event(&ctx, WM_EVT_BTN_PAUSE), "RUNNING accepts PAUSE");
+    TEST_ASSERT(wm_fsm_can_accept_event(&ctx, WM_EVT_BTN_STOP), "RUNNING accepts STOP");
+    TEST_ASSERT(wm_fsm_can_accept_event(&ctx, WM_EVT_TIMER_TICK_1S), "RUNNING accepts 1S tick");
+
+    /* 4. PAUSED State */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_PAUSE);
+    TEST_ASSERT(ctx.state == WM_STATE_PAUSED, "State is PAUSED");
+    TEST_ASSERT(!wm_fsm_can_accept_event(&ctx, WM_EVT_COIN_10), "PAUSED rejects coins");
+    TEST_ASSERT(wm_fsm_can_accept_event(&ctx, WM_EVT_BTN_RUN), "PAUSED accepts RUN (resume)");
+    TEST_ASSERT(!wm_fsm_can_accept_event(&ctx, WM_EVT_BTN_PAUSE), "PAUSED rejects redundant PAUSE");
+    TEST_ASSERT(wm_fsm_can_accept_event(&ctx, WM_EVT_BTN_STOP), "PAUSED accepts STOP");
+
+    /* 5. ERROR State */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_FAULT_OCCURRED);
+    TEST_ASSERT(ctx.state == WM_STATE_ERROR, "State is ERROR");
+    TEST_ASSERT(!wm_fsm_can_accept_event(&ctx, WM_EVT_COIN_10), "ERROR rejects coins");
+    TEST_ASSERT(!wm_fsm_can_accept_event(&ctx, WM_EVT_BTN_RUN), "ERROR rejects RUN");
+    TEST_ASSERT(!wm_fsm_can_accept_event(&ctx, WM_EVT_BTN_PAUSE), "ERROR rejects PAUSE");
+    TEST_ASSERT(!wm_fsm_can_accept_event(&ctx, WM_EVT_BTN_STOP), "ERROR rejects STOP");
+    TEST_ASSERT(!wm_fsm_can_accept_event(&ctx, WM_EVT_FAULT_OCCURRED), "ERROR rejects redundant FAULT");
+    TEST_ASSERT(wm_fsm_can_accept_event(&ctx, WM_EVT_FAULT_CLEARED), "ERROR accepts FAULT_CLEARED");
+
+    TEST_PASS("TC-27: Event Acceptance Query Protocol (Deterministic event filtering across all 5 states)");
+}
+
+/* -------------------------------------------------------------------------- */
+/* TC-28: Cycle Sub-Phase Query & Enum Decoders (wm_fsm_get_cycle_phase)       */
+/* -------------------------------------------------------------------------- */
+static void test_tc28_cycle_sub_phase_query(void) {
+    mock_hal_reset();
+    hal_output_callbacks_t cbs = mock_hal_get_callbacks();
+    wm_context_t ctx;
+    wm_fsm_init(&ctx, &cbs);
+    ctx.cycle_duration_setting = 60; /* 60s total, spin at <= 10s */
+
+    /* NULL context safety */
+    TEST_ASSERT(wm_fsm_get_cycle_phase(NULL) == WM_PHASE_IDLE, "NULL ctx yields IDLE phase");
+
+    /* Standby & Ready phase */
+    TEST_ASSERT(wm_fsm_get_cycle_phase(&ctx) == WM_PHASE_IDLE, "STANDBY yields IDLE phase");
+    TEST_ASSERT(strcmp(wm_cycle_phase_to_str(WM_PHASE_IDLE), "IDLE") == 0, "IDLE phase string");
+
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_50);
+    TEST_ASSERT(wm_fsm_get_cycle_phase(&ctx) == WM_PHASE_IDLE, "READY yields IDLE phase");
+
+    /* Start washing: Agitate phase */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_RUN);
+    TEST_ASSERT(wm_fsm_get_cycle_phase(&ctx) == WM_PHASE_WASH_AGITATE, "Active washing starts in AGITATE");
+    TEST_ASSERT(strcmp(wm_cycle_phase_to_str(WM_PHASE_WASH_AGITATE), "WASH_AGITATE") == 0, "AGITATE string");
+
+    /* Advance to remaining 11s (> 10s): Still AGITATE */
+    helper_advance_sec(&ctx, 49);
+    TEST_ASSERT(wm_fsm_get_cycle_phase(&ctx) == WM_PHASE_WASH_AGITATE, "11s remaining is AGITATE");
+
+    /* Advance to 10s: Enters FINAL_SPIN */
+    helper_advance_sec(&ctx, 1);
+    TEST_ASSERT(wm_fsm_get_cycle_phase(&ctx) == WM_PHASE_FINAL_SPIN, "10s remaining is FINAL_SPIN");
+    TEST_ASSERT(strcmp(wm_cycle_phase_to_str(WM_PHASE_FINAL_SPIN), "FINAL_SPIN") == 0, "FINAL_SPIN string");
+
+    /* Pause during final spin retains FINAL_SPIN phase */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_PAUSE);
+    TEST_ASSERT(wm_fsm_get_cycle_phase(&ctx) == WM_PHASE_FINAL_SPIN, "PAUSED retains FINAL_SPIN phase");
+
+    /* Complete cycle */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_RUN);
+    helper_advance_sec(&ctx, 10);
+    TEST_ASSERT(ctx.state == WM_STATE_STANDBY, "Cycle finished");
+    TEST_ASSERT(wm_fsm_get_cycle_phase(&ctx) == WM_PHASE_IDLE, "Back to IDLE phase");
+
+    /* Unknown phase string fallback */
+    TEST_ASSERT(strcmp(wm_cycle_phase_to_str((wm_cycle_phase_t)99), "UNKNOWN_PHASE") == 0, "Default unknown phase string");
+
+    TEST_PASS("TC-28: Cycle Sub-Phase Query & Enum Decoders (Correct phase detection throughout cycle)");
+}
+
+/* -------------------------------------------------------------------------- */
 /* Main Test Runner                                                          */
 /* -------------------------------------------------------------------------- */
 int main(void) {
@@ -846,6 +957,8 @@ int main(void) {
     test_tc24_granular_fault_diagnostics();
     test_tc25_arithmetic_overflow_resilience();
     test_tc26_multi_phase_wash_profile();
+    test_tc27_event_acceptance_query_protocol();
+    test_tc28_cycle_sub_phase_query();
 
     printf("\n" ANSI_CYAN "============================================================\n" ANSI_RESET);
     if (g_tests_failed == 0) {
@@ -858,5 +971,6 @@ int main(void) {
         return 1;
     }
 }
+
 
 

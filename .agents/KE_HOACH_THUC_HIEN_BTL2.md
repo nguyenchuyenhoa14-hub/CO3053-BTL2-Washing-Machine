@@ -108,7 +108,7 @@ Hệ thống được thiết kế theo mô hình chuẩn 5 trạng thái:
 
 ---
 
-## 5. BẢNG 25 KỊCH BẢN KIỂM THỬ TỰ ĐỘNG (TEST MATRIX - 100% PASS)
+## 5. BẢNG 28 KỊCH BẢN KIỂM THỬ TỰ ĐỘNG (TEST MATRIX - 100% PASS)
 
 | Mã Test | Tên kịch bản kiểm thử | Mô tả hành vi & Điều kiện kiểm tra | Kết quả |
 | :---: | :--- | :--- | :---: |
@@ -138,17 +138,24 @@ Hệ thống được thiết kế theo mô hình chuẩn 5 trạng thái:
 | **TC-24** | **Chẩn đoán lỗi đa cảm biến (Bitmask)** | Ghi nhận từng loại lỗi (Cửa mở, Kẹt van nước, Quá tải motor) dạng chuỗi chẩn đoán rõ ràng. | **PASS** |
 | **TC-25** | **Kháng tràn số nguyên (MISRA-C Rule 12.4)** | Đút xu khi số dư ở biên cực đại `UINT32_MAX` $\rightarrow$ Tuyệt đối không bị cuốn số về 0 (wrap-around defense). | **PASS** |
 | **TC-26** | **Chuyển pha chấp hành (Agitate -> Spin & Drain)** | 5/6 thời gian đầu động cơ đảo chiều giặt (Agitate); 1/6 thời gian cuối kích hoạt bơm xả và vắt tốc độ cao (Spin dry); Hết giờ ngắt toàn bộ tải. | **PASS** |
+| **TC-27** | **Lọc sự kiện hợp lệ (Event Acceptance Protocol)** | Hàm `wm_fsm_can_accept_event()` sàng lọc chặt chẽ sự kiện hợp lệ/không hợp lệ trên toàn bộ 5 trạng thái FSM. | **PASS** |
+| **TC-28** | **Truy vấn phân pha chu trình (Cycle Sub-Phase Query)** | Nhận diện chính xác pha `IDLE`, `WASH_AGITATE` và `FINAL_SPIN` kèm bộ giải mã chuỗi trực quan. | **PASS** |
 
 ---
 
 ## 6. HƯỚNG DẪN THỰC THI & SỬ DỤNG
 
-### 1. Biên dịch và chạy bộ kiểm thử tự động (26 Tests):
+### 1. Biên dịch và chạy bộ kiểm thử tự động (28 Tests):
 ```bash
 mingw32-make test
 ```
 
-### 2. Biên dịch và bật Simulator tương tác trực quan:
+### 2. Biên dịch và chạy bản thực thi Super-Loop Bare-Metal:
+```bash
+mingw32-make demo
+```
+
+### 3. Biên dịch và bật Simulator tương tác trực quan:
 ```bash
 mingw32-make sim
 .\sim_wm.exe
@@ -167,4 +174,5 @@ mingw32-make sim
   * `e3`: Giả lập lỗi Quá tải động cơ (Motor overcurrent)
   * `c`: Xóa lỗi khôi phục máy về STANDBY
   * `q`: Thoát simulator
+
 

@@ -362,4 +362,68 @@ const char* wm_fault_to_str(uint32_t fault_mask) {
     return "MULTIPLE_FAULTS";
 }
 
+bool wm_fsm_can_accept_event(const wm_context_t *ctx, wm_event_t event) {
+    if (!ctx) {
+        return false;
+    }
+
+    if (event == WM_EVT_FAULT_OCCURRED) {
+        return ctx->state != WM_STATE_ERROR;
+    }
+    if (event == WM_EVT_TIMER_TICK_1MS) {
+        return true;
+    }
+
+    switch (ctx->state) {
+        case WM_STATE_STANDBY:
+            return (event == WM_EVT_COIN_10 || event == WM_EVT_COIN_20 || event == WM_EVT_COIN_50);
+
+        case WM_STATE_READY:
+            return (event == WM_EVT_COIN_10 || event == WM_EVT_COIN_20 || event == WM_EVT_COIN_50 ||
+                    event == WM_EVT_BTN_RUN || event == WM_EVT_BTN_STOP);
+
+        case WM_STATE_RUNNING:
+            return (event == WM_EVT_BTN_PAUSE || event == WM_EVT_BTN_STOP ||
+                    (event == WM_EVT_TIMER_TICK_1S && ctx->remaining_cycle_sec > 0));
+
+        case WM_STATE_PAUSED:
+            return (event == WM_EVT_BTN_RUN || event == WM_EVT_BTN_STOP ||
+                    (event == WM_EVT_TIMER_TICK_1S && ctx->remaining_cycle_sec > 0));
+
+        case WM_STATE_ERROR:
+            return (event == WM_EVT_FAULT_CLEARED);
+
+        default:
+            return false;
+    }
+}
+
+wm_cycle_phase_t wm_fsm_get_cycle_phase(const wm_context_t *ctx) {
+    if (!ctx) {
+        return WM_PHASE_IDLE;
+    }
+
+    if (ctx->state == WM_STATE_RUNNING || ctx->state == WM_STATE_PAUSED) {
+        uint32_t total = (ctx->cycle_duration_setting > 0) ?
+                          ctx->cycle_duration_setting : WM_CYCLE_DURATION_SEC;
+        uint32_t spin_threshold = total / 6;
+        if (ctx->remaining_cycle_sec <= spin_threshold && ctx->remaining_cycle_sec > 0) {
+            return WM_PHASE_FINAL_SPIN;
+        }
+        return WM_PHASE_WASH_AGITATE;
+    }
+
+    return WM_PHASE_IDLE;
+}
+
+const char* wm_cycle_phase_to_str(wm_cycle_phase_t phase) {
+    switch (phase) {
+        case WM_PHASE_IDLE:         return "IDLE";
+        case WM_PHASE_WASH_AGITATE: return "WASH_AGITATE";
+        case WM_PHASE_FINAL_SPIN:   return "FINAL_SPIN";
+        default:                    return "UNKNOWN_PHASE";
+    }
+}
+
+
 

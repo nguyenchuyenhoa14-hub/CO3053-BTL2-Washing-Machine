@@ -8,7 +8,7 @@
 ---
 
 ## 1. Project Overview
-This repository contains the production-grade embedded C implementation, Hardware Abstraction Layer (HAL), automated verification testbench (20 test cases), and interactive command-line simulator for the **Coin-Operated Washing Machine Control Unit**.
+This repository contains the production-grade embedded C implementation, Hardware Abstraction Layer (HAL), automated verification testbench (28 exhaustive test cases), bare-metal super-loop demonstration, and interactive command-line simulator for the **Coin-Operated Washing Machine Control Unit**.
 
 ---
 
@@ -24,9 +24,14 @@ This repository contains the production-grade embedded C implementation, Hardwar
 3. **Multi-Modal LED Signalling:**
    - **Red LED (`RLED`):** Solid ON when machine is in `STANDBY` (available to serve); Blinking at 2.0 Hz when in `ERROR` state.
    - **Blue LED (`BLED`):** Solid ON when machine is in `READY` ($\ge 50¢$ deposited); Blinking at 1.0 Hz when `RUNNING` (active washing).
-4. **Persistent Cycle Clock:**
+4. **Persistent Cycle Clock & Actuator Sub-Phases:**
    - 30-minute ($1800\,\text{s}$) countdown clock runs independently of actuator states.
    - **Critical Requirement:** Timer continues ticking down even while in `PAUSED` state. If paused until timer reaches 0, the machine automatically terminates back to `STANDBY`.
+   - **Multi-Phase Profile:** Main agitation (drum reverse) for the first 5/6 of the cycle; high-speed spin dry & drain pump active for the final 1/6 of the cycle.
+5. **Granular Safety Fault Diagnostics:**
+   - Hardware sensor bitmask monitoring (`WM_FAULT_DOOR_OPEN`, `WM_FAULT_WATER_TIMEOUT`, `WM_FAULT_MOTOR_OVERCURRENT`).
+   - Total actuator de-energization and I/O lockout during fault state.
+
 
 ---
 
@@ -34,7 +39,7 @@ This repository contains the production-grade embedded C implementation, Hardwar
 
 ```text
 .
-├── Makefile                          # Build automation (make test, make sim)
+├── Makefile                          # Build automation (make test, make sim, make demo)
 ├── README.md                         # Project documentation
 ├── src/
 │   ├── include/
@@ -43,11 +48,12 @@ This repository contains the production-grade embedded C implementation, Hardwar
 │   │   └── washing_machine_fsm.h     # Public FSM core API, enums, context struct
 │   ├── fsm/
 │   │   └── washing_machine_fsm.c     # Deterministic Moore-Mealy FSM implementation
-│   └── hal/
-│       ├── mock_hal.h                # Virtual HAL recorder for unit testing
-│       └── mock_hal.c                # Mock hardware implementation
+│   ├── hal/
+│   │   ├── mock_hal.h                # Virtual HAL recorder for unit testing
+│   │   └── mock_hal.c                # Mock hardware implementation
+│   └── main.c                        # Bare-metal super-loop demonstration
 ├── tests/
-│   └── test_washing_machine.c        # Automated unit test suite (20 exhaustive test cases)
+│   └── test_washing_machine.c        # Automated unit test suite (28 exhaustive test cases)
 └── sim/
     └── sim_interactive.c             # Interactive CLI simulator with live dashboard
 ```
@@ -58,7 +64,7 @@ This repository contains the production-grade embedded C implementation, Hardwar
 
 ### 4.1 Running the Automated Test Suite (100% Coverage)
 ```bash
-# Compile and execute all 20 test cases
+# Compile and execute all 28 test cases
 mingw32-make test
 # or with standard make:
 make test
@@ -97,13 +103,21 @@ Expected output:
   [PASS] TC-24: Granular Fault Diagnostics (Multi-sensor bitmask tracking and string reports)
   [PASS] TC-25: Arithmetic Overflow Resilience (MISRA-C Rule 12.4 wrap-around defense)
   [PASS] TC-26: Multi-Phase Wash Profile (Agitate -> Spin/Drain -> Complete verified)
+  [PASS] TC-27: Event Acceptance Query Protocol (Deterministic event filtering across all 5 states)
+  [PASS] TC-28: Cycle Sub-Phase Query & Enum Decoders (Correct phase detection throughout cycle)
 
 ============================================================
- ALL 26 TESTS PASSED SUCCESSFULLY! (100% Test Coverage)
+ ALL 28 TESTS PASSED SUCCESSFULLY! (100% Test Coverage)
 ============================================================
 ```
 
-### 4.2 Running the Interactive CLI Simulator
+### 4.2 Running the Bare-Metal Super-Loop Demo
+```bash
+# Build and execute the bare-metal super-loop demonstration
+mingw32-make demo
+```
+
+### 4.3 Running the Interactive CLI Simulator
 ```bash
 # Build the interactive simulator
 mingw32-make sim

@@ -28,6 +28,15 @@ typedef enum {
 } wm_state_t;
 
 /**
+ * @brief Sub-phases of the active washing cycle
+ */
+typedef enum {
+    WM_PHASE_IDLE = 0,          /**< Machine not washing */
+    WM_PHASE_WASH_AGITATE,      /**< Main wash agitation (drum reversing) */
+    WM_PHASE_FINAL_SPIN         /**< High-speed spin dry and wastewater drainage */
+} wm_cycle_phase_t;
+
+/**
  * @brief External events injected into the FSM
  */
 typedef enum {
@@ -117,6 +126,26 @@ void wm_fsm_trigger_fault(wm_context_t *ctx, uint32_t fault_mask);
  * @param ctx Pointer to FSM context structure.
  */
 void wm_fsm_clear_fault(wm_context_t *ctx);
+
+/**
+ * @brief Check if the FSM can legally accept a given event in its current state.
+ * @param ctx Pointer to FSM context structure.
+ * @param event The candidate event to query.
+ * @return true if the event would be handled or trigger a transition; false if ignored.
+ */
+bool wm_fsm_can_accept_event(const wm_context_t *ctx, wm_event_t event);
+
+/**
+ * @brief Get current washing cycle sub-phase (Agitate vs Spin dry).
+ * @param ctx Pointer to FSM context structure.
+ * @return Current cycle phase enum.
+ */
+wm_cycle_phase_t wm_fsm_get_cycle_phase(const wm_context_t *ctx);
+
+/**
+ * @brief Convert cycle phase enum to human-readable string.
+ */
+const char* wm_cycle_phase_to_str(wm_cycle_phase_t phase);
 
 /**
  * @brief Convert state enum to human-readable string.
