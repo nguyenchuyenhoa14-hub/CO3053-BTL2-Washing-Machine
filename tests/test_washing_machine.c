@@ -595,6 +595,86 @@ static void test_tc20_null_pointer_and_api_resilience(void) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* TC-21: Consecutive Multi-Cycle Sessions (Zero Residue / Deadlock)          */
+/* -------------------------------------------------------------------------- */
+static void test_tc21_consecutive_multi_cycle_sessions(void) {
+    mock_hal_reset();
+    hal_output_callbacks_t cbs = mock_hal_get_callbacks();
+    wm_context_t ctx;
+    wm_fsm_init(&ctx, &cbs);
+    ctx.cycle_duration_setting = 30; /* 30s accelerated */
+
+    /* --- Session 1: Full Normal Completion --- */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_50);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_RUN);
+    helper_advance_sec(&ctx, 30);
+    TEST_ASSERT(ctx.state == WM_STATE_STANDBY, "S1: Finished cycle must be in STANDBY");
+    TEST_ASSERT(mock_hal_get_state()->cycle_complete_count == 1, "S1: cycle_complete count is 1");
+
+    /* --- Session 2: Immediate Deposit & Force Stop --- */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_20);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_50);
+    TEST_ASSERT(ctx.state == WM_STATE_READY, "S2: Deposit reached READY");
+    TEST_ASSERT(ctx.coin_balance_cents == 70, "S2: Balance is 70¢");
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_RUN);
+    TEST_ASSERT(ctx.state == WM_STATE_RUNNING, "S2: Running");
+    TEST_ASSERT(ctx.coin_balance_cents == 0, "S2: Money cleared on RUN");
+
+    helper_advance_sec(&ctx, 5);
+    /* Double stop */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_STOP);
+    helper_advance_ms(&ctx, 200);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_STOP);
+    TEST_ASSERT(ctx.state == WM_STATE_STANDBY, "S2: Force stopped to STANDBY");
+
+    /* --- Session 3: Immediate Deposit, Fault & Recovery --- */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_50);
+    TEST_ASSERT(ctx.state == WM_STATE_READY, "S3: Ready for 3rd user");
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_RUN);
+    TEST_ASSERT(ctx.state == WM_STATE_RUNNING, "S3: Running 3rd cycle");
+
+    wm_fsm_dispatch_event(&ctx, WM_EVT_FAULT_OCCURRED);
+    TEST_ASSERT(ctx.state == WM_STATE_ERROR, "S3: Fault caught");
+    wm_fsm_dispatch_event(&ctx, WM_EVT_FAULT_CLEARED);
+    TEST_ASSERT(ctx.state == WM_STATE_STANDBY, "S3: Fault cleared to STANDBY");
+
+    TEST_PASS("TC-21: Consecutive Multi-Cycle Sessions (Flawless back-to-back operations without leakage)");
+}
+
+/* -------------------------------------------------------------------------- */
+/* TC-22: Precise Boundary Double-Stop Window Timing (1499ms vs 1501ms)       */
+/* -------------------------------------------------------------------------- */
+static void test_tc22_boundary_double_stop_timing(void) {
+    mock_hal_reset();
+    hal_output_callbacks_t cbs = mock_hal_get_callbacks();
+    wm_context_t ctx;
+    wm_fsm_init(&ctx, &cbs);
+
+    /* Part A: 1499ms gap (within 1500ms window) -> MUST FORCE STOP */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_50);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_RUN);
+    TEST_ASSERT(ctx.state == WM_STATE_RUNNING, "Part A: Running");
+
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_STOP); /* 1st press */
+    helper_advance_ms(&ctx, 1499);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_STOP); /* 2nd press at 1499ms */
+    TEST_ASSERT(ctx.state == WM_STATE_STANDBY, "1499ms press must trigger double-stop force shutdown");
+
+    /* Part B: 1501ms gap (exceeding 1500ms window) -> MUST NOT FORCE STOP */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_50);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_RUN);
+    TEST_ASSERT(ctx.state == WM_STATE_RUNNING, "Part B: Running");
+
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_STOP); /* 1st press */
+    helper_advance_ms(&ctx, 1501); /* Window expires! */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_STOP); /* Treated as new 1st press */
+    TEST_ASSERT(ctx.state == WM_STATE_RUNNING, "1501ms press must NOT force stop (window expired)");
+    TEST_ASSERT(ctx.stop_press_count == 1, "Must be recorded as fresh 1st press");
+
+    TEST_PASS("TC-22: Boundary Double-Stop Timing (Exact 1499ms hit vs 1501ms expiration verified)");
+}
+
+/* -------------------------------------------------------------------------- */
 /* Main Test Runner                                                          */
 /* -------------------------------------------------------------------------- */
 int main(void) {
@@ -623,6 +703,8 @@ int main(void) {
     test_tc18_ready_state_double_stop_cancellation();
     test_tc19_multiple_isolated_single_stops();
     test_tc20_null_pointer_and_api_resilience();
+    test_tc21_consecutive_multi_cycle_sessions();
+    test_tc22_boundary_double_stop_timing();
 
     printf("\n" ANSI_CYAN "============================================================\n" ANSI_RESET);
     if (g_tests_failed == 0) {
@@ -635,4 +717,5 @@ int main(void) {
         return 1;
     }
 }
+
 
