@@ -54,6 +54,17 @@ bool hal_button_was_pressed(hal_button_t *btn) {
     return false;
 }
 
+bool hal_button_was_released(hal_button_t *btn) {
+    if (!btn) {
+        return false;
+    }
+    if (btn->released_event) {
+        btn->released_event = false;
+        return true;
+    }
+    return false;
+}
+
 bool hal_button_is_pressed(const hal_button_t *btn) {
     return btn ? btn->debounced_state : false;
 }

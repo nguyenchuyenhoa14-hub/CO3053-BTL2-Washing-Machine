@@ -66,6 +66,13 @@ void hal_button_update(hal_button_t *btn, bool raw_pin_high, uint32_t delta_ms);
 bool hal_button_was_pressed(hal_button_t *btn);
 
 /**
+ * @brief Check if a release transition occurred
+ * @param btn Pointer to button structure
+ * @return true if released since last call; clears event latch
+ */
+bool hal_button_was_released(hal_button_t *btn);
+
+/**
  * @brief Check current steady debounced state
  * @param btn Pointer to button structure
  * @return true if currently held down

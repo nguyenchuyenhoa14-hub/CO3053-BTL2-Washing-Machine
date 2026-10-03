@@ -63,6 +63,8 @@ static void test_button_debouncer_glitch_rejection(void) {
         hal_button_update(&btn, true, 1);
     }
     TEST_ASSERT(!hal_button_is_pressed(&btn), "Released recognized after 30ms");
+    TEST_ASSERT(hal_button_was_released(&btn), "Release event latched");
+    TEST_ASSERT(!hal_button_was_released(&btn), "Release event cleared on read");
 
     TEST_PASS("HAL-01: Button Debounce (30ms glitch rejection and edge detection verified)");
 }

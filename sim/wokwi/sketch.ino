@@ -396,10 +396,10 @@ static void update_lcd(void) {
     if (g_wm.state == WM_STATE_ERROR) {
         lcd.print("CLOSE LID & REST");
     } else {
-        lcd.print("MTR:");
+        lcd.print("M:");
         lcd.print(g_wm.motor == HAL_MOTOR_AGITATE ? "AGIT " :
                   g_wm.motor == HAL_MOTOR_SPIN    ? "SPIN " : "OFF  ");
-        lcd.print("PUMP:");
+        lcd.print("P:");
         lcd.print(g_wm.drain_pump ? "1 " : "0 ");
         lcd.print("LCK:");
         lcd.print(g_wm.door_lock ? "1" : "0");
