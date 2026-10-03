@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdbool.h>
 #include <assert.h>
 #include "washing_machine_fsm.h"
@@ -675,6 +676,92 @@ static void test_tc22_boundary_double_stop_timing(void) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* TC-23: Single STOP Rejection in READY State (Deposit Preserved)            */
+/* -------------------------------------------------------------------------- */
+static void test_tc23_single_stop_in_ready_preserves_deposit(void) {
+    mock_hal_reset();
+    hal_output_callbacks_t cbs = mock_hal_get_callbacks();
+    wm_context_t ctx;
+    wm_fsm_init(&ctx, &cbs);
+
+    /* Deposit 60¢ */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_20);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_20);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_20);
+    TEST_ASSERT(ctx.state == WM_STATE_READY, "Must be READY");
+    TEST_ASSERT(ctx.coin_balance_cents == 60, "Balance must be 60¢");
+
+    /* Single STOP press */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_STOP);
+    TEST_ASSERT(ctx.state == WM_STATE_READY, "Single STOP must NOT cancel READY state!");
+    TEST_ASSERT(ctx.coin_balance_cents == 60, "Balance must remain 60¢");
+
+    /* Wait 2.0s (> 1.5s window) */
+    helper_advance_ms(&ctx, 2000);
+    TEST_ASSERT(ctx.stop_press_count == 0, "Stop window expired");
+    TEST_ASSERT(ctx.state == WM_STATE_READY, "Still READY after window expiry");
+    TEST_ASSERT(ctx.coin_balance_cents == 60, "Balance still preserved at 60¢");
+
+    /* User can now press RUN normally */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_RUN);
+    TEST_ASSERT(ctx.state == WM_STATE_RUNNING, "RUN succeeds after rejected single STOP");
+    TEST_ASSERT(ctx.coin_balance_cents == 0, "Cleared on RUN");
+
+    TEST_PASS("TC-23: Single STOP in READY (Preserves accumulated deposit against accidental touch)");
+}
+
+/* -------------------------------------------------------------------------- */
+/* TC-24: Granular Fault Diagnostics & Bitmask Tracking                       */
+/* -------------------------------------------------------------------------- */
+static void test_tc24_granular_fault_diagnostics(void) {
+    mock_hal_reset();
+    hal_output_callbacks_t cbs = mock_hal_get_callbacks();
+    wm_context_t ctx;
+    wm_fsm_init(&ctx, &cbs);
+
+    TEST_ASSERT(wm_fsm_get_fault_flags(&ctx) == WM_FAULT_NONE, "No fault on init");
+    TEST_ASSERT(strcmp(wm_fault_to_str(WM_FAULT_NONE), "NO_FAULT") == 0, "Correct NO_FAULT string");
+
+    /* Trigger Door Latch Open Fault */
+    wm_fsm_trigger_fault(&ctx, WM_FAULT_DOOR_OPEN);
+    TEST_ASSERT(ctx.state == WM_STATE_ERROR, "State must be ERROR");
+    TEST_ASSERT(wm_fsm_get_fault_flags(&ctx) == WM_FAULT_DOOR_OPEN, "Door fault bitmask recorded");
+    TEST_ASSERT(strcmp(wm_fault_to_str(wm_fsm_get_fault_flags(&ctx)), "DOOR_LATCH_OPEN") == 0, "Door open string");
+
+    /* Add Motor Overcurrent fault */
+    wm_fsm_trigger_fault(&ctx, WM_FAULT_MOTOR_OVERCURRENT);
+    TEST_ASSERT(wm_fsm_get_fault_flags(&ctx) == (WM_FAULT_DOOR_OPEN | WM_FAULT_MOTOR_OVERCURRENT), "Both faults recorded");
+
+    /* Clear all faults */
+    wm_fsm_clear_fault(&ctx);
+    TEST_ASSERT(ctx.state == WM_STATE_STANDBY, "Must recover to STANDBY");
+    TEST_ASSERT(wm_fsm_get_fault_flags(&ctx) == WM_FAULT_NONE, "Fault flags cleared");
+
+    TEST_PASS("TC-24: Granular Fault Diagnostics (Multi-sensor bitmask tracking and string reports)");
+}
+
+/* -------------------------------------------------------------------------- */
+/* TC-25: Arithmetic Overflow Resilience in Coin Accumulation                 */
+/* -------------------------------------------------------------------------- */
+static void test_tc25_arithmetic_overflow_resilience(void) {
+    mock_hal_reset();
+    hal_output_callbacks_t cbs = mock_hal_get_callbacks();
+    wm_context_t ctx;
+    wm_fsm_init(&ctx, &cbs);
+
+    /* Artificially simulate boundary near UINT32_MAX */
+    ctx.coin_balance_cents = UINT32_MAX - 10;
+    ctx.state = WM_STATE_READY;
+
+    /* Deposit 50¢: Must safely guard against integer wrap-around */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_50);
+    TEST_ASSERT(ctx.coin_balance_cents >= (UINT32_MAX - 10), "Balance must never wrap around to 0 on overflow");
+    TEST_ASSERT(ctx.state == WM_STATE_READY, "Must stay READY");
+
+    TEST_PASS("TC-25: Arithmetic Overflow Resilience (MISRA-C Rule 12.4 wrap-around defense)");
+}
+
+/* -------------------------------------------------------------------------- */
 /* Main Test Runner                                                          */
 /* -------------------------------------------------------------------------- */
 int main(void) {
@@ -705,6 +792,9 @@ int main(void) {
     test_tc20_null_pointer_and_api_resilience();
     test_tc21_consecutive_multi_cycle_sessions();
     test_tc22_boundary_double_stop_timing();
+    test_tc23_single_stop_in_ready_preserves_deposit();
+    test_tc24_granular_fault_diagnostics();
+    test_tc25_arithmetic_overflow_resilience();
 
     printf("\n" ANSI_CYAN "============================================================\n" ANSI_RESET);
     if (g_tests_failed == 0) {

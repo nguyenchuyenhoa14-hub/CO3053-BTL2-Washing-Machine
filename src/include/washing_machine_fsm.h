@@ -101,6 +101,24 @@ uint32_t wm_fsm_get_balance(const wm_context_t *ctx);
 uint32_t wm_fsm_get_remaining_seconds(const wm_context_t *ctx);
 
 /**
+ * @brief Get active fault bitmask flags.
+ */
+uint32_t wm_fsm_get_fault_flags(const wm_context_t *ctx);
+
+/**
+ * @brief Trigger a specific hardware/safety fault bitmask.
+ * @param ctx Pointer to FSM context structure.
+ * @param fault_mask Bitmask of faults (e.g. WM_FAULT_DOOR_OPEN).
+ */
+void wm_fsm_trigger_fault(wm_context_t *ctx, uint32_t fault_mask);
+
+/**
+ * @brief Clear all active safety faults and recover towards STANDBY.
+ * @param ctx Pointer to FSM context structure.
+ */
+void wm_fsm_clear_fault(wm_context_t *ctx);
+
+/**
  * @brief Convert state enum to human-readable string.
  */
 const char* wm_state_to_str(wm_state_t state);
@@ -109,6 +127,11 @@ const char* wm_state_to_str(wm_state_t state);
  * @brief Convert event enum to human-readable string.
  */
 const char* wm_event_to_str(wm_event_t event);
+
+/**
+ * @brief Convert fault bitmask to human-readable diagnostic string.
+ */
+const char* wm_fault_to_str(uint32_t fault_mask);
 
 #ifdef __cplusplus
 }

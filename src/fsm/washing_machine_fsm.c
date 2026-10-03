@@ -6,6 +6,7 @@
 
 #include "washing_machine_fsm.h"
 #include <stddef.h>
+#include <limits.h>
 
 /* Helper macro for safe callback execution */
 #define CALL_HAL(cb, func, ...) do { if ((cb)->func) { (cb)->func(__VA_ARGS__); } } while(0)
@@ -65,6 +66,8 @@ static void enter_paused(wm_context_t *ctx) {
 
 static void enter_error(wm_context_t *ctx) {
     ctx->state = WM_STATE_ERROR;
+    ctx->stop_press_count = 0;
+    ctx->stop_window_timer_ms = 0;
 
     CALL_HAL(&ctx->callbacks, set_motor, HAL_MOTOR_OFF);
     CALL_HAL(&ctx->callbacks, set_water_valve, false);
@@ -83,7 +86,7 @@ void wm_fsm_init(wm_context_t *ctx, const hal_output_callbacks_t *callbacks) {
     ctx->remaining_cycle_sec = 0;
     ctx->stop_press_count = 0;
     ctx->stop_window_timer_ms = 0;
-    ctx->active_error_flags = 0;
+    ctx->active_error_flags = WM_FAULT_NONE;
     ctx->cycle_duration_setting = WM_CYCLE_DURATION_SEC;
 
     if (callbacks) {
@@ -104,14 +107,18 @@ void wm_fsm_init(wm_context_t *ctx, const hal_output_callbacks_t *callbacks) {
 
 static bool handle_coin_deposit(wm_context_t *ctx, uint32_t amount) {
     if (ctx->state == WM_STATE_STANDBY) {
-        ctx->coin_balance_cents += amount;
+        if (ctx->coin_balance_cents <= (UINT32_MAX - amount)) {
+            ctx->coin_balance_cents += amount;
+        }
         if (ctx->coin_balance_cents >= WM_COIN_THRESHOLD_CENTS) {
             enter_ready(ctx);
         }
         return true;
     } else if (ctx->state == WM_STATE_READY) {
         /* Surplus money is accepted, but will be cleared upon RUN without refund */
-        ctx->coin_balance_cents += amount;
+        if (ctx->coin_balance_cents <= (UINT32_MAX - amount)) {
+            ctx->coin_balance_cents += amount;
+        }
         return true;
     }
     /* Ignored in RUNNING, PAUSED, ERROR */
@@ -145,6 +152,9 @@ bool wm_fsm_dispatch_event(wm_context_t *ctx, wm_event_t event) {
 
     /* Global emergency error transition */
     if (event == WM_EVT_FAULT_OCCURRED) {
+        if (ctx->active_error_flags == WM_FAULT_NONE) {
+            ctx->active_error_flags = WM_FAULT_DOOR_OPEN;
+        }
         if (ctx->state != WM_STATE_ERROR) {
             enter_error(ctx);
             return true;
@@ -237,6 +247,7 @@ bool wm_fsm_dispatch_event(wm_context_t *ctx, wm_event_t event) {
 
         case WM_STATE_ERROR:
             if (event == WM_EVT_FAULT_CLEARED) {
+                ctx->active_error_flags = WM_FAULT_NONE;
                 ctx->coin_balance_cents = 0;
                 enter_standby(ctx);
                 return true;
@@ -306,4 +317,33 @@ uint32_t wm_fsm_get_balance(const wm_context_t *ctx) {
 uint32_t wm_fsm_get_remaining_seconds(const wm_context_t *ctx) {
     return ctx ? ctx->remaining_cycle_sec : 0;
 }
+
+uint32_t wm_fsm_get_fault_flags(const wm_context_t *ctx) {
+    return ctx ? ctx->active_error_flags : 0;
+}
+
+void wm_fsm_trigger_fault(wm_context_t *ctx, uint32_t fault_mask) {
+    if (!ctx) {
+        return;
+    }
+    ctx->active_error_flags |= fault_mask;
+    enter_error(ctx);
+}
+
+void wm_fsm_clear_fault(wm_context_t *ctx) {
+    if (!ctx) {
+        return;
+    }
+    ctx->active_error_flags = WM_FAULT_NONE;
+    wm_fsm_dispatch_event(ctx, WM_EVT_FAULT_CLEARED);
+}
+
+const char* wm_fault_to_str(uint32_t fault_mask) {
+    if (fault_mask == WM_FAULT_NONE) return "NO_FAULT";
+    if (fault_mask & WM_FAULT_DOOR_OPEN) return "DOOR_LATCH_OPEN";
+    if (fault_mask & WM_FAULT_WATER_TIMEOUT) return "WATER_INLET_TIMEOUT";
+    if (fault_mask & WM_FAULT_MOTOR_OVERCURRENT) return "MOTOR_OVERCURRENT";
+    return "MULTIPLE_FAULTS";
+}
+
 

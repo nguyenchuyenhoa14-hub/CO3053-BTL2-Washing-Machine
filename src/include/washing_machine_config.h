@@ -47,6 +47,14 @@ extern "C" {
  */
 #define WM_RLED_BLINK_PERIOD_MS        (500U)
 
+/**
+ * @brief Diagnostic bitmasks for safety faults (Sensor inputs)
+ */
+#define WM_FAULT_NONE                  (0x00U)
+#define WM_FAULT_DOOR_OPEN             (0x01U) /**< Safety interlock open during spin/wash */
+#define WM_FAULT_WATER_TIMEOUT         (0x02U) /**< Inlet water filling timeout */
+#define WM_FAULT_MOTOR_OVERCURRENT     (0x04U) /**< Motor stall / overcurrent detected */
+
 #ifdef __cplusplus
 }
 #endif

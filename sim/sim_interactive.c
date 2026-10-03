@@ -56,12 +56,25 @@ static void print_dashboard(const wm_context_t *ctx, const mock_hal_state_t *hal
     printf(" [MOTOR]     : %s\n", (hal->motor == HAL_MOTOR_AGITATE) ? ANSI_GREEN "AGITATING (Active Wash)" ANSI_RESET :
                                   (hal->motor == HAL_MOTOR_SPIN) ? ANSI_GREEN "SPINNING" ANSI_RESET : "[ STOPPED ]");
     printf(" [DOOR LOCK] : %s\n", hal->door_locked ? ANSI_GREEN "LOCKED" ANSI_RESET : "UNLOCKED");
+
+    /* Pending STOP window & Diagnostics */
+    if (ctx->stop_press_count > 0) {
+        printf(" [STOP NOTICE]: " ANSI_YELLOW "1st press recorded! Window: %u ms remaining to double-stop." ANSI_RESET "\n",
+               ctx->stop_window_timer_ms);
+    }
+    if (ctx->state == WM_STATE_ERROR) {
+        printf(" [FAULT DIAG ]: " ANSI_RED "%s (Mask: 0x%02X)" ANSI_RESET "\n",
+               wm_fault_to_str(wm_fsm_get_fault_flags(ctx)), wm_fsm_get_fault_flags(ctx));
+    }
+
     printf(ANSI_CYAN "======================================================================\n" ANSI_RESET);
     printf(" COMMANDS:\n");
     printf("  [1] Insert 10¢    [2] Insert 20¢    [3] Insert 50¢\n");
     printf("  [r] Press RUN     [p] Press PAUSE   [s] Press STOP (Single click)\n");
     printf("  [ss] Double STOP (Force stop)       [t <sec>] Advance time by seconds\n");
-    printf("  [e] Trigger FAULT [c] Clear FAULT   [q] Quit simulator\n");
+    printf("  [e1] Fault: Lid Open                [e2] Fault: Water Timeout\n");
+    printf("  [e3] Fault: Motor Overcurrent       [c] Clear Fault / Reset\n");
+    printf("  [q] Quit simulator\n");
     printf(ANSI_CYAN "----------------------------------------------------------------------\n" ANSI_RESET);
     printf(" Enter command > ");
     fflush(stdout);
@@ -113,10 +126,16 @@ int main(void) {
                 }
                 wm_fsm_tick_1s(&ctx);
             }
+        } else if (strcmp(line, "e1") == 0) {
+            wm_fsm_trigger_fault(&ctx, WM_FAULT_DOOR_OPEN);
+        } else if (strcmp(line, "e2") == 0) {
+            wm_fsm_trigger_fault(&ctx, WM_FAULT_WATER_TIMEOUT);
+        } else if (strcmp(line, "e3") == 0) {
+            wm_fsm_trigger_fault(&ctx, WM_FAULT_MOTOR_OVERCURRENT);
         } else if (strcmp(line, "e") == 0 || strcmp(line, "error") == 0) {
             wm_fsm_dispatch_event(&ctx, WM_EVT_FAULT_OCCURRED);
         } else if (strcmp(line, "c") == 0 || strcmp(line, "clear") == 0) {
-            wm_fsm_dispatch_event(&ctx, WM_EVT_FAULT_CLEARED);
+            wm_fsm_clear_fault(&ctx);
         } else if (strlen(line) > 0) {
             printf(ANSI_YELLOW "Unknown command: '%s'\n" ANSI_RESET, line);
         }

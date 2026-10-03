@@ -93,9 +93,12 @@ Expected output:
   [PASS] TC-20: Null Pointer and API Resilience (Zero segmentation faults, robust error handling)
   [PASS] TC-21: Consecutive Multi-Cycle Sessions (Flawless back-to-back operations without leakage)
   [PASS] TC-22: Boundary Double-Stop Timing (Exact 1499ms hit vs 1501ms expiration verified)
+  [PASS] TC-23: Single STOP in READY (Preserves accumulated deposit against accidental touch)
+  [PASS] TC-24: Granular Fault Diagnostics (Multi-sensor bitmask tracking and string reports)
+  [PASS] TC-25: Arithmetic Overflow Resilience (MISRA-C Rule 12.4 wrap-around defense)
 
 ============================================================
- ALL 22 TESTS PASSED SUCCESSFULLY! (100% Test Coverage)
+ ALL 25 TESTS PASSED SUCCESSFULLY! (100% Test Coverage)
 ============================================================
 ```
 
@@ -114,9 +117,11 @@ mingw32-make sim
 - `3`: Insert 50¢ coin
 - `r`: Press RUN
 - `p`: Press PAUSE
-- `s`: Press STOP once
+- `s`: Press STOP once (Starts 1.5s sliding window)
 - `ss`: Press STOP twice (Force stop)
 - `t <seconds>`: Fast-forward time (e.g. `t 60` to advance 1 minute)
-- `e`: Trigger hardware fault (RLED blinks at 2.0 Hz)
-- `c`: Clear hardware fault
+- `e1`: Simulate Lid Open Fault
+- `e2`: Simulate Water Timeout Fault
+- `e3`: Simulate Motor Overcurrent Fault
+- `c`: Clear hardware faults and recover to STANDBY
 - `q`: Quit simulator
