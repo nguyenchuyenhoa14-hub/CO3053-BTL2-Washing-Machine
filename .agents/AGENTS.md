@@ -55,6 +55,10 @@ Design, specify, implement, and rigorously verify the **Control Unit of a Coin-O
    - Tuyệt đối **không làm dư** các tính năng rườm rà, phức tạp hóa không cần thiết làm sai lệch tính chất cốt lõi của đề bài.
    - Code phải thanh lịch, tường minh, chuẩn nhúng MISRA-C, không rò rỉ bộ nhớ và đạt điểm 10/10 tuyệt đối.
 
+8. **Mandatory Post-Test Housekeeping & Clean Code Discipline (Dọn Dẹp Sạch Sẽ Sau Mỗi Lần Kiểm Thử)**:
+   - Mỗi lần thực hiện biên dịch hoặc chạy kiểm thử (`mingw32-make test`, `test_hal`, `stm32`, `demo`, v.v.) xong, bắt buộc phải dọn dẹp toàn bộ các tệp nhị phân thực thi (`*.exe`, `*.o`, binaries) bằng lệnh `mingw32-make clean`.
+   - Giữ mã nguồn và git working tree luôn luôn ở trạng thái **Clean hoàn hảo nhất** sau mỗi lần test, tuyệt đối không để sót lại bất kỳ file thực thi rác hay tệp build tạm bợ nào trong thư mục làm việc.
+
 ---
 
 ## 3. Directory & Artifact Structure
