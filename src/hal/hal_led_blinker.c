@@ -64,10 +64,12 @@ void hal_led_blinker_tick_ms(hal_led_blinker_t *blinker, uint32_t delta_ms) {
 
     if (blinker->mode == HAL_LED_BLINK_1HZ || blinker->mode == HAL_LED_BLINK_2HZ) {
         blinker->phase_timer_ms += delta_ms;
-        if (blinker->phase_timer_ms >= blinker->half_period_ms) {
-            /* Invert output state */
-            blinker->output_level = !blinker->output_level;
-            blinker->phase_timer_ms = 0;
+        if (blinker->half_period_ms > 0 && blinker->phase_timer_ms >= blinker->half_period_ms) {
+            uint32_t toggles = blinker->phase_timer_ms / blinker->half_period_ms;
+            if ((toggles & 1U) != 0U) {
+                blinker->output_level = !blinker->output_level;
+            }
+            blinker->phase_timer_ms %= blinker->half_period_ms;
         }
     }
 }

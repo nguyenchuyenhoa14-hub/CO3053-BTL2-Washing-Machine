@@ -98,6 +98,8 @@ int main(void) {
         /* Check door interlock safety sensor */
         if (hal_button_is_pressed(&sw_door_fault)) {
             wm_fsm_trigger_fault(&g_fsm_ctx, WM_FAULT_DOOR_OPEN);
+        } else if (g_fsm_ctx.state == WM_STATE_ERROR) {
+            wm_fsm_clear_fault(&g_fsm_ctx);
         }
 
 #ifndef __arm__

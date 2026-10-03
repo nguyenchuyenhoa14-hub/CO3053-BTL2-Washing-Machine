@@ -200,6 +200,34 @@ static void test_actuator_interlock_guard(void) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Test 5: Comprehensive NULL Pointer Resilience across all HAL APIs          */
+/* -------------------------------------------------------------------------- */
+static void test_hal_null_pointer_resilience(void) {
+    /* Button engine NULL safety */
+    hal_button_init(NULL, true);
+    hal_button_update(NULL, true, 1);
+    TEST_ASSERT(!hal_button_was_pressed(NULL), "NULL was_pressed returns false");
+    TEST_ASSERT(!hal_button_was_released(NULL), "NULL was_released returns false");
+    TEST_ASSERT(!hal_button_is_pressed(NULL), "NULL is_pressed returns false");
+
+    /* Coin pulse detector NULL safety */
+    hal_coin_pulse_init(NULL, true, 150);
+    hal_coin_pulse_update(NULL, true, 1);
+    TEST_ASSERT(hal_coin_pulse_get_coin(NULL) == 0, "NULL get_coin returns 0");
+
+    /* LED blinker NULL safety */
+    hal_led_blinker_init(NULL, true);
+    hal_led_blinker_set_mode(NULL, HAL_LED_ON);
+    hal_led_blinker_tick_ms(NULL, 10);
+    TEST_ASSERT(!hal_led_blinker_get_output(NULL), "NULL get_output returns false");
+
+    /* Actuator guard NULL safety */
+    TEST_ASSERT(!hal_actuator_is_safe(NULL), "NULL actuator guard returns false");
+
+    TEST_PASS("HAL-05: NULL Pointer Resilience (Zero crash across all HAL API functions)");
+}
+
+/* -------------------------------------------------------------------------- */
 /* Runner                                                                     */
 /* -------------------------------------------------------------------------- */
 int main(void) {
@@ -212,6 +240,7 @@ int main(void) {
     test_coin_pulse_detector();
     test_led_blinker_waveforms();
     test_actuator_interlock_guard();
+    test_hal_null_pointer_resilience();
 
     printf("\n" ANSI_CYAN "============================================================\n" ANSI_RESET);
     if (g_hal_failed == 0) {
@@ -224,3 +253,4 @@ int main(void) {
         return 1;
     }
 }
+
