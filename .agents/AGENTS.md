@@ -49,6 +49,12 @@ Design, specify, implement, and rigorously verify the **Control Unit of a Coin-O
    - **DO NOT start writing or generating reports yet** (Phase 6 / `report/` is strictly deferred).
    - Direct 100% of effort toward researching, refining, auditing, and perfecting the codebase, unit tests, hardware drivers, simulators, timing determinism, and MISRA-C compliance until the implementation is 100% flawless (10/10).
 
+7. **Absolute Specification Fidelity ("Đúng, Đủ, Chuẩn Hoàn Hảo - Không Làm Thiếu, Không Làm Dư")**:
+   - Mọi dòng mã nguồn và hành vi FSM phải bám sát 100% từng câu chữ trong slide đề bài của PGS. TS. Phạm Hoàng Anh (`anhpham@hcmut.edu.vn`).
+   - Tuyệt đối **không làm thiếu** bất kỳ yêu cầu nào (3 nút bấm STOP/RUN/PAUSE, 2 LED RLED/BLED, xu 10¢/20¢/50¢, ngưỡng 50¢, nuốt tiền không hoàn lại, timer 30 phút vẫn đếm khi Pause, bấm STOP 2 lần mới dừng, LED báo lỗi).
+   - Tuyệt đối **không làm dư** các tính năng rườm rà, phức tạp hóa không cần thiết làm sai lệch tính chất cốt lõi của đề bài.
+   - Code phải thanh lịch, tường minh, chuẩn nhúng MISRA-C, không rò rỉ bộ nhớ và đạt điểm 10/10 tuyệt đối.
+
 ---
 
 ## 3. Directory & Artifact Structure
