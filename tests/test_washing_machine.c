@@ -762,6 +762,56 @@ static void test_tc25_arithmetic_overflow_resilience(void) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* TC-26: Multi-Phase Wash Profile (Agitate -> Spin & Drain -> Complete)      */
+/* -------------------------------------------------------------------------- */
+static void test_tc26_multi_phase_wash_profile(void) {
+    mock_hal_reset();
+    hal_output_callbacks_t cbs = mock_hal_get_callbacks();
+    wm_context_t ctx;
+    wm_fsm_init(&ctx, &cbs);
+    ctx.cycle_duration_setting = 60; /* 60s cycle: spin threshold is at 60/6 = 10s */
+
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_50);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_RUN);
+    TEST_ASSERT(ctx.state == WM_STATE_RUNNING, "Must be RUNNING");
+
+    /* During first 49s (remaining 60 -> 11): Agitation phase */
+    helper_advance_sec(&ctx, 49);
+    TEST_ASSERT(ctx.remaining_cycle_sec == 11, "At 11s");
+    TEST_ASSERT(mock_hal_get_state()->motor == HAL_MOTOR_AGITATE, "Agitate phase before 10s threshold");
+    TEST_ASSERT(mock_hal_get_state()->drain_pump_on == false, "Drain pump OFF during agitation");
+    TEST_ASSERT(mock_hal_get_state()->door_locked == true, "Door locked");
+
+    /* Advance 1 more second: reaches 10s -> Enters Spin & Drain phase! */
+    helper_advance_sec(&ctx, 1);
+    TEST_ASSERT(ctx.remaining_cycle_sec == 10, "Reached 10s spin threshold");
+    TEST_ASSERT(mock_hal_get_state()->motor == HAL_MOTOR_SPIN, "Motor transitioned to high-speed SPIN");
+    TEST_ASSERT(mock_hal_get_state()->drain_pump_on == true, "Drain pump active during spin");
+
+    /* Pause during spin */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_PAUSE);
+    TEST_ASSERT(ctx.state == WM_STATE_PAUSED, "Paused during spin");
+    TEST_ASSERT(mock_hal_get_state()->motor == HAL_MOTOR_OFF, "Motor cut in pause");
+    TEST_ASSERT(mock_hal_get_state()->drain_pump_on == false, "Pump cut in pause");
+
+    /* Resume from pause: must restore spin and drain! */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_RUN);
+    TEST_ASSERT(ctx.state == WM_STATE_RUNNING, "Resumed");
+    TEST_ASSERT(mock_hal_get_state()->motor == HAL_MOTOR_SPIN, "Resumed back to SPIN");
+    TEST_ASSERT(mock_hal_get_state()->drain_pump_on == true, "Resumed drain pump");
+
+    /* Complete remaining 10 seconds */
+    helper_advance_sec(&ctx, 10);
+    TEST_ASSERT(ctx.state == WM_STATE_STANDBY, "Completed to STANDBY");
+    TEST_ASSERT(mock_hal_get_state()->motor == HAL_MOTOR_OFF, "Motor shut off");
+    TEST_ASSERT(mock_hal_get_state()->drain_pump_on == false, "Pump shut off");
+    TEST_ASSERT(mock_hal_get_state()->door_locked == false, "Door unlocked");
+    TEST_ASSERT(mock_hal_get_state()->cycle_complete_count == 1, "Completed callback");
+
+    TEST_PASS("TC-26: Multi-Phase Wash Profile (Agitate -> Spin/Drain -> Complete verified)");
+}
+
+/* -------------------------------------------------------------------------- */
 /* Main Test Runner                                                          */
 /* -------------------------------------------------------------------------- */
 int main(void) {
@@ -795,6 +845,7 @@ int main(void) {
     test_tc23_single_stop_in_ready_preserves_deposit();
     test_tc24_granular_fault_diagnostics();
     test_tc25_arithmetic_overflow_resilience();
+    test_tc26_multi_phase_wash_profile();
 
     printf("\n" ANSI_CYAN "============================================================\n" ANSI_RESET);
     if (g_tests_failed == 0) {

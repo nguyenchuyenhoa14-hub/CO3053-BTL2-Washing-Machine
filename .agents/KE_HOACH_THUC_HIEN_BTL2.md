@@ -137,12 +137,13 @@ Hệ thống được thiết kế theo mô hình chuẩn 5 trạng thái:
 | **TC-23** | **Bấm STOP 1 lần ở READY giữ nguyên tiền** | Ở `READY` (60¢) bấm STOP 1 lần và đợi quá 1.5s $\rightarrow$ Không bị hủy, tiền vẫn nguyên 60¢, bấm RUN giặt bình thường. | **PASS** |
 | **TC-24** | **Chẩn đoán lỗi đa cảm biến (Bitmask)** | Ghi nhận từng loại lỗi (Cửa mở, Kẹt van nước, Quá tải motor) dạng chuỗi chẩn đoán rõ ràng. | **PASS** |
 | **TC-25** | **Kháng tràn số nguyên (MISRA-C Rule 12.4)** | Đút xu khi số dư ở biên cực đại `UINT32_MAX` $\rightarrow$ Tuyệt đối không bị cuốn số về 0 (wrap-around defense). | **PASS** |
+| **TC-26** | **Chuyển pha chấp hành (Agitate -> Spin & Drain)** | 5/6 thời gian đầu động cơ đảo chiều giặt (Agitate); 1/6 thời gian cuối kích hoạt bơm xả và vắt tốc độ cao (Spin dry); Hết giờ ngắt toàn bộ tải. | **PASS** |
 
 ---
 
 ## 6. HƯỚNG DẪN THỰC THI & SỬ DỤNG
 
-### 1. Biên dịch và chạy bộ kiểm thử tự động (25 Tests):
+### 1. Biên dịch và chạy bộ kiểm thử tự động (26 Tests):
 ```bash
 mingw32-make test
 ```

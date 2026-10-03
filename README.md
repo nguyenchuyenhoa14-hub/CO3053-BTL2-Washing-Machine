@@ -96,9 +96,10 @@ Expected output:
   [PASS] TC-23: Single STOP in READY (Preserves accumulated deposit against accidental touch)
   [PASS] TC-24: Granular Fault Diagnostics (Multi-sensor bitmask tracking and string reports)
   [PASS] TC-25: Arithmetic Overflow Resilience (MISRA-C Rule 12.4 wrap-around defense)
+  [PASS] TC-26: Multi-Phase Wash Profile (Agitate -> Spin/Drain -> Complete verified)
 
 ============================================================
- ALL 25 TESTS PASSED SUCCESSFULLY! (100% Test Coverage)
+ ALL 26 TESTS PASSED SUCCESSFULLY! (100% Test Coverage)
 ============================================================
 ```
 

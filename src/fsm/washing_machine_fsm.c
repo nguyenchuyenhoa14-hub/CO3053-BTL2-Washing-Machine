@@ -33,6 +33,25 @@ static void enter_ready(wm_context_t *ctx) {
     CALL_HAL(&ctx->callbacks, set_bled, HAL_LED_ON);
 }
 
+static void update_running_actuators(wm_context_t *ctx) {
+    uint32_t total = (ctx->cycle_duration_setting > 0) ?
+                      ctx->cycle_duration_setting : WM_CYCLE_DURATION_SEC;
+    uint32_t spin_threshold = total / 6; /* Final 1/6th of wash cycle is spin dry */
+
+    CALL_HAL(&ctx->callbacks, set_door_lock, true);
+    if (ctx->remaining_cycle_sec <= spin_threshold) {
+        /* Final drain & high-speed spin dry */
+        CALL_HAL(&ctx->callbacks, set_drain_pump, true);
+        CALL_HAL(&ctx->callbacks, set_water_valve, false);
+        CALL_HAL(&ctx->callbacks, set_motor, HAL_MOTOR_SPIN);
+    } else {
+        /* Main wash agitation */
+        CALL_HAL(&ctx->callbacks, set_drain_pump, false);
+        CALL_HAL(&ctx->callbacks, set_water_valve, false);
+        CALL_HAL(&ctx->callbacks, set_motor, HAL_MOTOR_AGITATE);
+    }
+}
+
 static void enter_running(wm_context_t *ctx, bool is_resuming) {
     ctx->state = WM_STATE_RUNNING;
     ctx->stop_press_count = 0;
@@ -48,8 +67,7 @@ static void enter_running(wm_context_t *ctx, bool is_resuming) {
 
     CALL_HAL(&ctx->callbacks, set_rled, HAL_LED_OFF);
     CALL_HAL(&ctx->callbacks, set_bled, HAL_LED_BLINK_1HZ);
-    CALL_HAL(&ctx->callbacks, set_door_lock, true);
-    CALL_HAL(&ctx->callbacks, set_motor, HAL_MOTOR_AGITATE);
+    update_running_actuators(ctx);
 }
 
 static void enter_paused(wm_context_t *ctx) {
@@ -145,6 +163,22 @@ static bool handle_stop_button(wm_context_t *ctx) {
     }
 }
 
+static bool handle_1s_timer_tick(wm_context_t *ctx) {
+    if (ctx->remaining_cycle_sec > 1) {
+        ctx->remaining_cycle_sec--;
+        if (ctx->state == WM_STATE_RUNNING) {
+            update_running_actuators(ctx);
+        }
+        return true;
+    } else if (ctx->remaining_cycle_sec == 1) {
+        ctx->remaining_cycle_sec = 0;
+        CALL_HAL_VOID(&ctx->callbacks, on_cycle_complete);
+        enter_standby(ctx);
+        return true;
+    }
+    return false;
+}
+
 bool wm_fsm_dispatch_event(wm_context_t *ctx, wm_event_t event) {
     if (!ctx) {
         return false;
@@ -208,16 +242,7 @@ bool wm_fsm_dispatch_event(wm_context_t *ctx, wm_event_t event) {
                 case WM_EVT_BTN_STOP:
                     return handle_stop_button(ctx);
                 case WM_EVT_TIMER_TICK_1S:
-                    if (ctx->remaining_cycle_sec > 1) {
-                        ctx->remaining_cycle_sec--;
-                        return true;
-                    } else if (ctx->remaining_cycle_sec == 1) {
-                        ctx->remaining_cycle_sec = 0;
-                        CALL_HAL_VOID(&ctx->callbacks, on_cycle_complete);
-                        enter_standby(ctx);
-                        return true;
-                    }
-                    return false;
+                    return handle_1s_timer_tick(ctx);
                 default:
                     return false;
             }
@@ -231,16 +256,7 @@ bool wm_fsm_dispatch_event(wm_context_t *ctx, wm_event_t event) {
                     return handle_stop_button(ctx);
                 case WM_EVT_TIMER_TICK_1S:
                     /* CRITICAL REQUIREMENT: Timer continues counting down in PAUSED state! */
-                    if (ctx->remaining_cycle_sec > 1) {
-                        ctx->remaining_cycle_sec--;
-                        return true;
-                    } else if (ctx->remaining_cycle_sec == 1) {
-                        ctx->remaining_cycle_sec = 0;
-                        CALL_HAL_VOID(&ctx->callbacks, on_cycle_complete);
-                        enter_standby(ctx);
-                        return true;
-                    }
-                    return false;
+                    return handle_1s_timer_tick(ctx);
                 default:
                     return false;
             }

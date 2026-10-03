@@ -54,7 +54,8 @@ static void print_dashboard(const wm_context_t *ctx, const mock_hal_state_t *hal
 
     /* Actuators */
     printf(" [MOTOR]     : %s\n", (hal->motor == HAL_MOTOR_AGITATE) ? ANSI_GREEN "AGITATING (Active Wash)" ANSI_RESET :
-                                  (hal->motor == HAL_MOTOR_SPIN) ? ANSI_GREEN "SPINNING" ANSI_RESET : "[ STOPPED ]");
+                                  (hal->motor == HAL_MOTOR_SPIN) ? ANSI_GREEN "SPINNING (High-Speed Dry)" ANSI_RESET : "[ STOPPED ]");
+    printf(" [DRAIN PUMP]: %s\n", hal->drain_pump_on ? ANSI_GREEN "ACTIVE (Discharging)" ANSI_RESET : "[ OFF ]");
     printf(" [DOOR LOCK] : %s\n", hal->door_locked ? ANSI_GREEN "LOCKED" ANSI_RESET : "UNLOCKED");
 
     /* Pending STOP window & Diagnostics */
