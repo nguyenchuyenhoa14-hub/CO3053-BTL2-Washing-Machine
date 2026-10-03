@@ -154,10 +154,13 @@ static void blinker_set(blinker_t *blk, hal_led_state_t mode) {
 static void blinker_tick(blinker_t *blk, uint32_t delta_ms) {
     if (blk->mode == HAL_LED_BLINK_1HZ || blk->mode == HAL_LED_BLINK_2HZ) {
         blk->timer_ms += delta_ms;
-        if (blk->timer_ms >= blk->half_period_ms) {
-            blk->level = !blk->level;
-            blk->timer_ms = 0;
-            digitalWrite(blk->pin, blk->level ? HIGH : LOW);
+        if (blk->half_period_ms > 0 && blk->timer_ms >= blk->half_period_ms) {
+            uint32_t toggles = blk->timer_ms / blk->half_period_ms;
+            if ((toggles & 1U) != 0U) {
+                blk->level = !blk->level;
+                digitalWrite(blk->pin, blk->level ? HIGH : LOW);
+            }
+            blk->timer_ms %= blk->half_period_ms;
         }
     }
 }
@@ -491,7 +494,7 @@ void loop() {
 
     /* 1-second system tick */
     ms_accumulator += delta;
-    if (ms_accumulator >= 1000) {
+    while (ms_accumulator >= 1000) {
         ms_accumulator -= 1000;
         dispatch_event(WM_EVT_TIMER_TICK_1S);
     }

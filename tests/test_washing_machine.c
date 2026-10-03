@@ -932,6 +932,55 @@ static void test_tc28_cycle_sub_phase_query(void) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* TC-29: Pause Across Phase Boundary (Continuous timer crosses into Spin)    */
+/* -------------------------------------------------------------------------- */
+static void test_tc29_pause_across_phase_boundary_transition(void) {
+    mock_hal_reset();
+    hal_output_callbacks_t cbs = mock_hal_get_callbacks();
+    wm_context_t ctx;
+    wm_fsm_init(&ctx, &cbs);
+
+    /* 60s scaled cycle: spin threshold is <= 10s */
+    ctx.cycle_duration_setting = 60;
+
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_50);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_RUN);
+
+    /* 1. Advance to 15s remaining (Main Agitation phase) */
+    helper_advance_sec(&ctx, 45);
+    TEST_ASSERT(ctx.remaining_cycle_sec == 15, "15s remaining");
+    TEST_ASSERT(mock_hal_get_state()->motor == HAL_MOTOR_AGITATE, "Agitating drum");
+    TEST_ASSERT(mock_hal_get_state()->drain_pump_on == false, "Pump off during agitate");
+
+    /* 2. Pause machine during Agitation */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_PAUSE);
+    TEST_ASSERT(ctx.state == WM_STATE_PAUSED, "Machine in PAUSED");
+    TEST_ASSERT(mock_hal_get_state()->motor == HAL_MOTOR_OFF, "Motor cut in pause");
+    TEST_ASSERT(mock_hal_get_state()->drain_pump_on == false, "Pump remains off in pause");
+
+    /* 3. Advance timer by 7s WHILE PAUSED (15s - 7s = 8s <= 10s spin threshold) */
+    helper_advance_sec(&ctx, 7);
+    TEST_ASSERT(ctx.state == WM_STATE_PAUSED, "Still in PAUSED state");
+    TEST_ASSERT(ctx.remaining_cycle_sec == 8, "Timer decremented to 8s during pause");
+    TEST_ASSERT(mock_hal_get_state()->motor == HAL_MOTOR_OFF, "Motor still halted");
+
+    /* 4. Resume execution: must recognize new phase and start SPIN + DRAIN! */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_RUN);
+    TEST_ASSERT(ctx.state == WM_STATE_RUNNING, "Resumed to RUNNING");
+    TEST_ASSERT(mock_hal_get_state()->motor == HAL_MOTOR_SPIN, "Dynamically resumed in SPIN mode");
+    TEST_ASSERT(mock_hal_get_state()->drain_pump_on == true, "Drain pump active for spin dry");
+
+    /* 5. Complete remaining 8s */
+    helper_advance_sec(&ctx, 8);
+    TEST_ASSERT(ctx.state == WM_STATE_STANDBY, "Cycle completed cleanly to STANDBY");
+    TEST_ASSERT(mock_hal_get_state()->motor == HAL_MOTOR_OFF, "Motor off");
+    TEST_ASSERT(mock_hal_get_state()->drain_pump_on == false, "Pump off");
+    TEST_ASSERT(mock_hal_get_state()->door_locked == false, "Door unlocked");
+
+    TEST_PASS("TC-29: Pause Across Phase Boundary (Continuous timer crosses into Spin)");
+}
+
+/* -------------------------------------------------------------------------- */
 /* Main Test Runner                                                          */
 /* -------------------------------------------------------------------------- */
 int main(void) {
@@ -968,6 +1017,7 @@ int main(void) {
     test_tc26_multi_phase_wash_profile();
     test_tc27_event_acceptance_query_protocol();
     test_tc28_cycle_sub_phase_query();
+    test_tc29_pause_across_phase_boundary_transition();
 
     printf("\n" ANSI_CYAN "============================================================\n" ANSI_RESET);
     if (g_tests_failed == 0) {

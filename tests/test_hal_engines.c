@@ -160,7 +160,19 @@ static void test_led_blinker_waveforms(void) {
     hal_led_blinker_tick_ms(&blinker, 250);
     TEST_ASSERT(hal_led_blinker_get_output(&blinker) == true, "2Hz at 500ms completes full cycle");
 
-    TEST_PASS("HAL-03: LED Blinker Waveforms (Accurate 1.0 Hz and 2.0 Hz non-blocking timing)");
+    /* 4. Non-uniform jitter / modulo zero-drift stress test (100 cycles of 100ms) */
+    hal_led_blinker_set_mode(&blinker, HAL_LED_BLINK_1HZ);
+    const uint32_t jitter_pattern[7] = {7U, 13U, 11U, 19U, 5U, 25U, 20U}; /* Sum = 100ms */
+    for (int rep = 0; rep < 100; rep++) {
+        for (int step = 0; step < 7; step++) {
+            hal_led_blinker_tick_ms(&blinker, jitter_pattern[step]);
+        }
+    }
+    /* Total: 10,000ms = exactly 20 half-periods of 500ms */
+    TEST_ASSERT(hal_led_blinker_get_output(&blinker) == true, "1Hz after 10,000ms jitter remains in initial phase");
+    TEST_ASSERT(blinker.phase_timer_ms == 0U, "Phase accumulator has ZERO cumulative drift under CPU jitter");
+
+    TEST_PASS("HAL-03: LED Blinker Waveforms (Accurate 1.0 Hz and 2.0 Hz non-blocking timing & zero-drift)");
 }
 
 /* -------------------------------------------------------------------------- */

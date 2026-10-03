@@ -148,6 +148,7 @@ Hệ thống được thiết kế theo mô hình chuẩn 5 trạng thái:
 | **TC-26** | **Chuyển pha chấp hành (Agitate -> Spin & Drain)** | 5/6 thời gian đầu động cơ đảo chiều giặt (Agitate); 1/6 thời gian cuối kích hoạt bơm xả và vắt tốc độ cao (Spin dry); Hết giờ ngắt toàn bộ tải. | **PASS** |
 | **TC-27** | **Lọc sự kiện hợp lệ (Event Acceptance Protocol)** | Hàm `wm_fsm_can_accept_event()` sàng lọc chặt chẽ sự kiện hợp lệ/không hợp lệ trên toàn bộ 5 trạng thái FSM. | **PASS** |
 | **TC-28** | **Truy vấn phân pha chu trình (Cycle Sub-Phase Query)** | Nhận diện chính xác pha `IDLE`, `WASH_AGITATE` và `FINAL_SPIN` kèm bộ giải mã chuỗi trực quan. | **PASS** |
+| **TC-29** | **Tạm dừng xuyên biên giới phân pha (Pause Phase Transition)** | Tạm dừng máy ở pha Agitate (310s), để timer đếm lùi trong Pause vượt mốc 300s (xuống 290s) $\rightarrow$ Khi bấm RUN tiếp tục, cơ cấu chấp hành tự động chuyển mượt sang pha Vắt cao tốc (Spin) và Bơm xả. | **PASS** |
 
 ### Bộ Kiểm Thử Tầng Phần Cứng HAL (HAL Engines Suite - 6 Tests)
 
@@ -175,7 +176,7 @@ Hệ thống được thiết kế theo mô hình chuẩn 5 trạng thái:
 
 ## 6. HƯỚNG DẪN THỰC THI & SỬ DỤNG
 
-### 1. Biên dịch và chạy bộ kiểm thử tự động (28 Tests):
+### 1. Biên dịch và chạy bộ kiểm thử tự động (29 Tests):
 ```bash
 mingw32-make test
 ```
