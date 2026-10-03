@@ -91,9 +91,11 @@ Expected output:
   [PASS] TC-18: Ready State Double STOP Cancellation (User cancel before run)
   [PASS] TC-19: Multiple Isolated Single STOPS (Spaced presses never falsely force stop)
   [PASS] TC-20: Null Pointer and API Resilience (Zero segmentation faults, robust error handling)
+  [PASS] TC-21: Consecutive Multi-Cycle Sessions (Flawless back-to-back operations without leakage)
+  [PASS] TC-22: Boundary Double-Stop Timing (Exact 1499ms hit vs 1501ms expiration verified)
 
 ============================================================
- ALL 20 TESTS PASSED SUCCESSFULLY! (100% Test Coverage)
+ ALL 22 TESTS PASSED SUCCESSFULLY! (100% Test Coverage)
 ============================================================
 ```
 
