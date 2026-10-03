@@ -149,8 +149,8 @@ Hệ thống được thiết kế theo mô hình chuẩn 5 trạng thái:
 | **TC-26** | **Chuyển pha chấp hành (Agitate -> Spin & Drain)** | 5/6 thời gian đầu động cơ đảo chiều giặt (Agitate); 1/6 thời gian cuối kích hoạt bơm xả và vắt tốc độ cao (Spin dry); Hết giờ ngắt toàn bộ tải. | **PASS** |
 | **TC-27** | **Lọc sự kiện hợp lệ (Event Acceptance Protocol)** | Hàm `wm_fsm_can_accept_event()` sàng lọc chặt chẽ sự kiện hợp lệ/không hợp lệ trên toàn bộ 5 trạng thái FSM. | **PASS** |
 | **TC-28** | **Truy vấn phân pha chu trình (Cycle Sub-Phase Query)** | Nhận diện chính xác pha `IDLE`, `WASH_AGITATE` và `FINAL_SPIN` kèm bộ giải mã chuỗi trực quan. | **PASS** |
-| **TC-29** | **Tạm dừng xuyên biên giới phân pha (Pause Phase Transition)** | Tạm dừng máy ở pha Agitate (310s), để timer đếm lùi trong Pause vượt mốc 300s (xuống 290s) $\rightarrow$ Khi bấm RUN tiếp tục, cơ cấu chấp hành tự động chuyển mượt sang pha Vắt cao tốc (Spin) và Bơm xả. | **PASS** |
-| **TC-30** | **Kháng lỗi biên MISRA-C & Trạng thái hỏng (MISRA-C Resilience)** | Sự kiện ngoài enum `(wm_event_t)999` trả về false an toàn; Trạng thái `(wm_state_t)999` kích hoạt nhánh default; Vận hành trọn vẹn chu trình với 100% Callback rỗng (`NULL`) không gây crash; Từ chối các mệnh giá xu phi chuẩn (0¢, 5¢, 15¢, 25¢, 30¢, 99¢, 100¢). | **PASS** |
+| **TC-29** | **Tạm dừng xuyên biên giới phân pha (Pause Phase Transition)** | Chu trình rút gọn 60s (ngưỡng vắt ≤ 10s): tạm dừng ở pha Agitate khi còn 15s, timer tiếp tục đếm trong Pause xuống 8s (đã vượt sang pha vắt) $\rightarrow$ Bấm RUN tiếp tục, cơ cấu chấp hành vào thẳng Vắt (SPIN) + Bơm xả; hết 8s về `STANDBY`, mở khóa cửa. | **PASS** |
+| **TC-30** | **Kháng lỗi biên MISRA-C & Trạng thái hỏng (MISRA-C Resilience)** | Sự kiện ngoài enum `(wm_event_t)999` bị từ chối; trạng thái hỏng `(wm_state_t)999` rơi vào nhánh `default` an toàn; các hàm giải mã chuỗi trả về `UNKNOWN*`; vận hành trọn chu trình (nạp xu → RUN → PAUSE → STOP kép → lỗi → phục hồi) với bảng callback `NULL` không crash. | **PASS** |
 
 ### Bộ Kiểm Thử Tầng Phần Cứng HAL (HAL Engines Suite - 6 Tests)
 

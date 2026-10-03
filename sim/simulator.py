@@ -103,7 +103,7 @@ class WashingMachineSimulator:
 
     def enter_error(self, fault_code: int = 1):
         self.state = State.ERROR
-        self.active_faults = fault_code
+        self.active_faults |= fault_code  # Bitmask accumulation (mirrors C core)
         self.stop_press_count = 0
         self.stop_window_ms = 0
         self.motor = MotorMode.OFF
@@ -232,7 +232,7 @@ class WashingMachineSimulator:
 
         if self.state == State.ERROR:
             fault_map = {1: "DOOR_LATCH_OPEN", 2: "WATER_INLET_TIMEOUT", 4: "MOTOR_OVERCURRENT"}
-            lines.append(f" {R}[FAULT CODE ]: {fault_map.get(self.active_faults, 'UNKNOWN_FAULT')} (Mask: 0x{self.active_faults:02X}){N}")
+            lines.append(f" {R}[FAULT CODE ]: {fault_map.get(self.active_faults, 'MULTIPLE_FAULTS')} (Mask: 0x{self.active_faults:02X}){N}")
 
         lines.extend([
             f"{C}======================================================================{N}",

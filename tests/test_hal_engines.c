@@ -177,6 +177,15 @@ static void test_led_blinker_waveforms(void) {
     TEST_ASSERT(hal_led_blinker_get_output(&blinker) == true, "1Hz after 10,000ms jitter remains in initial phase");
     TEST_ASSERT(blinker.phase_timer_ms == 0U, "Phase accumulator has ZERO cumulative drift under CPU jitter");
 
+    /* 5. Overflow guard must preserve ON/OFF parity:
+     *    elapsed = 300 + (UINT32_MAX - 299) = 2^32 ms; 2^32 mod 1000 = 296 -> first half (ON) */
+    hal_led_blinker_set_mode(&blinker, HAL_LED_OFF);
+    hal_led_blinker_set_mode(&blinker, HAL_LED_BLINK_1HZ);
+    hal_led_blinker_tick_ms(&blinker, 300U);
+    hal_led_blinker_tick_ms(&blinker, UINT32_MAX - 299U);
+    TEST_ASSERT(hal_led_blinker_get_output(&blinker) == true, "Overflow guard preserves ON/OFF parity");
+    TEST_ASSERT(blinker.phase_timer_ms == 296U, "Overflow guard preserves exact phase");
+
     TEST_PASS("HAL-03: LED Blinker Waveforms (Accurate 1.0 Hz and 2.0 Hz non-blocking timing & zero-drift)");
 }
 

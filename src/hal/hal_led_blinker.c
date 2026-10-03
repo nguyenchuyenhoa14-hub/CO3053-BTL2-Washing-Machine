@@ -63,9 +63,10 @@ void hal_led_blinker_tick_ms(hal_led_blinker_t *blinker, uint32_t delta_ms) {
     }
 
     if (blinker->mode == HAL_LED_BLINK_1HZ || blinker->mode == HAL_LED_BLINK_2HZ) {
-        /* Guard against arithmetic wrap-around under extreme delta_ms */
+        /* Guard against wrap-around under extreme delta_ms: reducing modulo one FULL
+         * period (2 half-periods) preserves both the phase and the ON/OFF parity. */
         if (delta_ms > (UINT32_MAX - blinker->phase_timer_ms)) {
-            delta_ms %= blinker->half_period_ms;
+            delta_ms %= (2U * blinker->half_period_ms);
         }
         blinker->phase_timer_ms += delta_ms;
         if (blinker->phase_timer_ms >= blinker->half_period_ms) {

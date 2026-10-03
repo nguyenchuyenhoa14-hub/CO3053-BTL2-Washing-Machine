@@ -22,42 +22,64 @@ static hal_button_t btn_c20;
 static hal_button_t btn_c50;
 static hal_button_t sw_door_fault;
 
-static volatile uint32_t g_ms_ticks = 0;
-static volatile uint32_t g_sec_accumulator = 0;
+/* Shared ISR -> super-loop data: ONLY this counter (32-bit aligned read is atomic on Cortex-M) */
+static volatile uint32_t g_ms_ticks = 0U;
+
+/* Super-loop private bookkeeping (never touched by ISR) */
+static uint32_t s_processed_ticks = 0U;
+static uint32_t s_sec_accumulator_ms = 0U;
+
+#define STM32_TICK_HZ        (1000U)
+#define STM32_MS_PER_SECOND  (1000U)
 
 /**
- * @brief Canonical SysTick ISR (Runs at 1 kHz / 1 ms period)
+ * @brief Canonical SysTick ISR (1 kHz / 1 ms period)
+ * @details Deliberately minimal: the FSM context, debouncers and blinkers are owned
+ *          exclusively by the super-loop, so no shared mutable state exists between
+ *          interrupt and thread context (no race conditions, no critical sections).
  */
 void SysTick_Handler(void) {
     g_ms_ticks++;
+}
 
-    /* 1. Advance FSM internal timers */
+/**
+ * @brief Deterministic 1 ms housekeeping, executed in thread context
+ */
+static void stm32_process_1ms(void) {
+    /* 1. Advance FSM double-press window */
     wm_fsm_tick_1ms(&g_fsm_ctx);
 
     /* 2. Advance physical LED blinker engines */
-    stm32_hal_tick_1ms(1);
+    stm32_hal_tick_1ms(1U);
 
-    /* 3. Sample digital inputs with 30ms software debouncers */
-    hal_button_update(&btn_run,        stm32_gpio_read(GPIOA, STM32_PIN_RUN), 1);
-    hal_button_update(&btn_pause,      stm32_gpio_read(GPIOA, STM32_PIN_PAUSE), 1);
-    hal_button_update(&btn_stop,       stm32_gpio_read(GPIOA, STM32_PIN_STOP), 1);
-    hal_button_update(&btn_c10,        stm32_gpio_read(GPIOA, STM32_PIN_COIN_10), 1);
-    hal_button_update(&btn_c20,        stm32_gpio_read(GPIOA, STM32_PIN_COIN_20), 1);
-    hal_button_update(&btn_c50,        stm32_gpio_read(GPIOA, STM32_PIN_COIN_50), 1);
-    hal_button_update(&sw_door_fault,  stm32_gpio_read(GPIOA, STM32_PIN_FAULT_DOOR), 1);
+    /* 3. Sample digital inputs through 30 ms software debouncers */
+    hal_button_update(&btn_run,        stm32_gpio_read(GPIOA, STM32_PIN_RUN), 1U);
+    hal_button_update(&btn_pause,      stm32_gpio_read(GPIOA, STM32_PIN_PAUSE), 1U);
+    hal_button_update(&btn_stop,       stm32_gpio_read(GPIOA, STM32_PIN_STOP), 1U);
+    hal_button_update(&btn_c10,        stm32_gpio_read(GPIOA, STM32_PIN_COIN_10), 1U);
+    hal_button_update(&btn_c20,        stm32_gpio_read(GPIOA, STM32_PIN_COIN_20), 1U);
+    hal_button_update(&btn_c50,        stm32_gpio_read(GPIOA, STM32_PIN_COIN_50), 1U);
+    hal_button_update(&sw_door_fault,  stm32_gpio_read(GPIOA, STM32_PIN_FAULT_DOOR), 1U);
 
-    /* 4. 1-second system clock tick */
-    g_sec_accumulator++;
-    if (g_sec_accumulator >= 1000U) {
-        g_sec_accumulator = 0;
+    /* 4. 1-second cycle clock */
+    s_sec_accumulator_ms++;
+    if (s_sec_accumulator_ms >= STM32_MS_PER_SECOND) {
+        s_sec_accumulator_ms = 0U;
         wm_fsm_tick_1s(&g_fsm_ctx);
     }
 }
 
 /**
- * @brief Non-blocking event dispatching logic executed in the super-loop
+ * @brief Non-blocking super-loop iteration
  */
 static void stm32_superloop_step(void) {
+    /* Catch up on every elapsed millisecond (wrap-around safe unsigned arithmetic) */
+    uint32_t now = g_ms_ticks;
+    while (s_processed_ticks != now) {
+        s_processed_ticks++;
+        stm32_process_1ms();
+    }
+
     /* Check debounced button events */
     if (hal_button_was_pressed(&btn_run)) {
         wm_fsm_dispatch_event(&g_fsm_ctx, WM_EVT_BTN_RUN);
@@ -88,6 +110,22 @@ static void stm32_superloop_step(void) {
 }
 
 #ifndef __arm__
+static uint32_t s_hil_passed = 0U;
+static uint32_t s_hil_failed = 0U;
+
+/**
+ * @brief Record and print a HIL verdict (a failing check is reported, never hidden)
+ */
+static void hil_check(bool ok, const char *name) {
+    if (ok) {
+        s_hil_passed++;
+        printf("  [PASS] %s\n", name);
+    } else {
+        s_hil_failed++;
+        printf("  [FAIL] %s\n", name);
+    }
+}
+
 /**
  * @brief Advance simulated hardware clock by N milliseconds for HIL test
  */
@@ -116,69 +154,69 @@ int main(void) {
     hal_output_callbacks_t cbs = stm32_hal_get_callbacks();
     wm_fsm_init(&g_fsm_ctx, &cbs);
 
-    printf("STM32 Bare-Metal Washing Machine Controller Initialized.\n");
-
 #ifdef __arm__
+    /* 4. Start 1 kHz SysTick time base (CMSIS) */
+    (void)SysTick_Config(SystemCoreClock / STM32_TICK_HZ);
+
     /* Physical Target Execution: Continuous Super-Loop */
     while (1) {
         stm32_superloop_step();
     }
 #else
+    printf("STM32 Bare-Metal Washing Machine Controller Initialized.\n");
+
     /* Desktop Hardware-in-the-Loop (HIL) Automated Verification */
     printf("\n=== STM32 Bare-Metal Hardware-in-the-Loop (HIL) Automated Verification ===\n");
 
     /* HIL-01: STANDBY initial state (PB0 / RLED energized) */
     sim_advance_ms(10);
-    if (g_fsm_ctx.state == WM_STATE_STANDBY && (GPIOB->ODR & (1U << STM32_PIN_RLED))) {
-        printf("  [PASS] STM32-HIL-01: Standby initialization confirmed (RLED PB0 energized).\n");
-    }
+    hil_check(g_fsm_ctx.state == WM_STATE_STANDBY && (GPIOB->ODR & (1U << STM32_PIN_RLED)),
+              "STM32-HIL-01: Standby initialization confirmed (RLED PB0 energized).");
 
     /* HIL-02: Deposit 50¢ on PA5 (Active-low pulse: 35ms LOW, then 35ms HIGH) */
     GPIOA->IDR &= ~(1U << STM32_PIN_COIN_50);
     sim_advance_ms(35);
     GPIOA->IDR |= (1U << STM32_PIN_COIN_50);
     sim_advance_ms(35);
-    if (g_fsm_ctx.state == WM_STATE_READY && (GPIOB->ODR & (1U << STM32_PIN_BLED))) {
-        printf("  [PASS] STM32-HIL-02: Deposit 50¢ (PA5) transitions to READY (BLED PB1 energized).\n");
-    }
+    hil_check(g_fsm_ctx.state == WM_STATE_READY && (GPIOB->ODR & (1U << STM32_PIN_BLED)),
+              "STM32-HIL-02: Deposit 50c (PA5) transitions to READY (BLED PB1 energized).");
 
     /* HIL-03: Press RUN on PA0 (Active-low pulse) -> Door Lock (PB15) & Agitate (PB12) */
     GPIOA->IDR &= ~(1U << STM32_PIN_RUN);
     sim_advance_ms(35);
     GPIOA->IDR |= (1U << STM32_PIN_RUN);
     sim_advance_ms(35);
-    if (g_fsm_ctx.state == WM_STATE_RUNNING &&
-        (GPIOB->ODR & (1U << STM32_PIN_DOOR_LOCK)) &&
-        (GPIOB->ODR & (1U << STM32_PIN_MTR_AGITATE))) {
-        printf("  [PASS] STM32-HIL-03: Press RUN (PA0) -> RUNNING (Door Lock PB15, Agitate PB12).\n");
-    }
+    hil_check(g_fsm_ctx.state == WM_STATE_RUNNING &&
+              (GPIOB->ODR & (1U << STM32_PIN_DOOR_LOCK)) &&
+              (GPIOB->ODR & (1U << STM32_PIN_MTR_AGITATE)),
+              "STM32-HIL-03: Press RUN (PA0) -> RUNNING (Door Lock PB15, Agitate PB12).");
 
     /* HIL-04: Advance SysTick clock non-blocking */
     sim_advance_ms(1000);
-    if (g_fsm_ctx.remaining_cycle_sec == 1799) {
-        printf("  [PASS] STM32-HIL-04: Non-blocking SysTick 1000ms countdown timer validated.\n");
-    }
+    hil_check(g_fsm_ctx.remaining_cycle_sec == (WM_CYCLE_DURATION_SEC - 1U),
+              "STM32-HIL-04: Non-blocking SysTick 1000ms countdown timer validated.");
 
     /* HIL-05: Door Opened during wash (PA6 grounded) -> Emergency shutdown */
     GPIOA->IDR &= ~(1U << STM32_PIN_FAULT_DOOR);
     sim_advance_ms(35);
-    if (g_fsm_ctx.state == WM_STATE_ERROR &&
-        !(GPIOB->ODR & (1U << STM32_PIN_MTR_AGITATE)) &&
-        !(GPIOB->ODR & (1U << STM32_PIN_DOOR_LOCK))) {
-        printf("  [PASS] STM32-HIL-05: Door sensor fault (PA6) shuts down motor & relays instantly.\n");
-    }
+    hil_check(g_fsm_ctx.state == WM_STATE_ERROR &&
+              !(GPIOB->ODR & (1U << STM32_PIN_MTR_AGITATE)) &&
+              !(GPIOB->ODR & (1U << STM32_PIN_DOOR_LOCK)),
+              "STM32-HIL-05: Door sensor fault (PA6) shuts down motor & relays instantly.");
 
     /* HIL-06: Door Closed (PA6 pulled high) -> Auto-recovery to STANDBY */
     GPIOA->IDR |= (1U << STM32_PIN_FAULT_DOOR);
     sim_advance_ms(35);
-    if (g_fsm_ctx.state == WM_STATE_STANDBY && (GPIOB->ODR & (1U << STM32_PIN_RLED))) {
-        printf("  [PASS] STM32-HIL-06: Door closure triggers safe recovery to STANDBY.\n");
+    hil_check(g_fsm_ctx.state == WM_STATE_STANDBY && (GPIOB->ODR & (1U << STM32_PIN_RLED)),
+              "STM32-HIL-06: Door closure triggers safe recovery to STANDBY.");
+
+    printf("===========================================================================\n");
+    if (s_hil_failed == 0U) {
+        printf(" ALL %u STM32 HARDWARE-IN-THE-LOOP TESTS PASSED!\n", (unsigned)s_hil_passed);
+    } else {
+        printf(" STM32 HIL FAILED: %u passed, %u failed\n", (unsigned)s_hil_passed, (unsigned)s_hil_failed);
     }
-
     printf("===========================================================================\n");
-    printf(" ALL 6 STM32 HARDWARE-IN-THE-LOOP TESTS PASSED!\n");
-    printf("===========================================================================\n");
+    return (s_hil_failed == 0U) ? 0 : 1;
 #endif
-
-    return 0;
 }
