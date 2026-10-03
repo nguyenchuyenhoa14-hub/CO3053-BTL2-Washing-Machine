@@ -1,7 +1,7 @@
 # Makefile for Washing Machine Control Unit (CO3053 - BTL 2)
 
 CC = gcc
-CFLAGS ?= -Wall -Wextra -Werror -O2 -I src/include -I src/hal
+CFLAGS ?= -Wall -Wextra -Werror -pedantic -std=c99 -O2 -I src/include -I src/hal
 
 SRC = src/fsm/washing_machine_fsm.c src/hal/mock_hal.c
 

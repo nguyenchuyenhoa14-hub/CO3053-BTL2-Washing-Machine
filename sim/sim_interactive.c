@@ -39,7 +39,8 @@ static void print_dashboard(const wm_context_t *ctx, const mock_hal_state_t *hal
     /* Financials & Timer */
     printf(" [BALANCE]   : " ANSI_GREEN "$%u.%02u" ANSI_RESET " (Required threshold: $0.50)\n",
            ctx->coin_balance_cents / 100, ctx->coin_balance_cents % 100);
-    printf(" [CYCLE TIME]: " ANSI_CYAN "%02u:%02u" ANSI_RESET " remaining\n", min, sec);
+    printf(" [CYCLE TIME]: " ANSI_CYAN "%02u:%02u" ANSI_RESET " remaining [%s]\n",
+           min, sec, wm_cycle_phase_to_str(wm_fsm_get_cycle_phase(ctx)));
 
     /* LEDs */
     printf(" [RLED (Red)]: ");
@@ -47,7 +48,7 @@ static void print_dashboard(const wm_context_t *ctx, const mock_hal_state_t *hal
     else if (hal->rled == HAL_LED_BLINK_2HZ) printf(ANSI_RED "[ BLINKING (2Hz) ]" ANSI_RESET " (FAULT DETECTED)\n");
     else printf("[ OFF ]\n");
 
-    printf(" [BLED (Blue): ");
+    printf(" [BLED (Blue)]: ");
     if (hal->bled == HAL_LED_ON) printf(ANSI_BLUE "[ SOLID ON ]" ANSI_RESET " (Ready to execute)\n");
     else if (hal->bled == HAL_LED_BLINK_1HZ) printf(ANSI_BLUE "[ BLINKING (1Hz) ]" ANSI_RESET " (Washing in progress)\n");
     else printf("[ OFF ]\n");

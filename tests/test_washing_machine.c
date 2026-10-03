@@ -587,10 +587,19 @@ static void test_tc20_null_pointer_and_api_resilience(void) {
     TEST_ASSERT(wm_fsm_get_state(NULL) == WM_STATE_STANDBY, "NULL state defaults to STANDBY");
     TEST_ASSERT(wm_fsm_get_balance(NULL) == 0, "NULL balance defaults to 0");
     TEST_ASSERT(wm_fsm_get_remaining_seconds(NULL) == 0, "NULL remaining seconds defaults to 0");
+    TEST_ASSERT(wm_fsm_get_fault_flags(NULL) == 0, "NULL fault flags defaults to 0");
+    TEST_ASSERT(wm_fsm_get_cycle_phase(NULL) == WM_PHASE_IDLE, "NULL cycle phase defaults to IDLE");
+    TEST_ASSERT(wm_fsm_can_accept_event(NULL, WM_EVT_COIN_10) == false, "NULL can_accept_event returns false");
+
+    /* Fault mutation on NULL context must safely no-op */
+    wm_fsm_trigger_fault(NULL, WM_FAULT_DOOR_OPEN);
+    wm_fsm_clear_fault(NULL);
 
     /* String converters */
     TEST_ASSERT(wm_state_to_str(WM_STATE_STANDBY) != NULL, "Valid state string");
     TEST_ASSERT(wm_event_to_str(WM_EVT_BTN_RUN) != NULL, "Valid event string");
+    TEST_ASSERT(wm_fault_to_str(WM_FAULT_NONE) != NULL, "Valid fault string");
+    TEST_ASSERT(wm_cycle_phase_to_str(WM_PHASE_IDLE) != NULL, "Valid cycle phase string");
 
     TEST_PASS("TC-20: Null Pointer and API Resilience (Zero segmentation faults, robust error handling)");
 }
