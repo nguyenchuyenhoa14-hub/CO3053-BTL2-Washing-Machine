@@ -8,7 +8,7 @@
 ---
 
 ## 1. Project Overview
-This repository contains the production-grade embedded C implementation, Hardware Abstraction Layer (HAL), automated verification testbench (28 exhaustive test cases), bare-metal super-loop demonstration, and interactive command-line simulator for the **Coin-Operated Washing Machine Control Unit**.
+This repository contains the production-grade embedded C implementation, Hardware Abstraction Layer (HAL), automated verification testbench (34 exhaustive test cases), bare-metal super-loop demonstration, and interactive command-line simulator for the **Coin-Operated Washing Machine Control Unit**.
 
 ---
 
@@ -32,6 +32,12 @@ This repository contains the production-grade embedded C implementation, Hardwar
    - Hardware sensor bitmask monitoring (`WM_FAULT_DOOR_OPEN`, `WM_FAULT_WATER_TIMEOUT`, `WM_FAULT_MOTOR_OVERCURRENT`).
    - Total actuator de-energization and I/O lockout during fault state.
 
+
+6. **FSM design decisions beyond the written spec** (all covered by tests):
+   - **`COLLECTING` state:** `0 < deposit < 50¢` is its own state (RLED on, BLED off), matching the BA analysis; it behaves like STANDBY for the user.
+   - **Cancel returns the deposit:** STOP pressed twice in `COLLECTING`/`READY` returns the money through the optional HAL callback `return_coins()` instead of silently discarding it. Pressing `RUN` still follows the zero-refund policy (BR-02): surplus is never returned.
+   - **Fault recovery keeps the customer's context** (`WM_ERROR_RESUMES_CYCLE`, default 1): the state before the fault is remembered. A deposit survives a fault; a cycle in progress returns to `PAUSED` when the fault is cleared (the user presses `RUN` to continue) and its timer keeps counting during the fault, like during `PAUSE`. Build with `-DWM_ERROR_RESUMES_CYCLE=0` for the legacy behaviour (fault always returns to STANDBY and discards deposit and cycle).
+   - **Assumptions:** STOP double-press window = 1.5 s; the BLED is solid while `PAUSED`; the spec does not define fault sources, so faults are injected (door switch / sensors).
 
 ---
 
@@ -59,7 +65,7 @@ This repository contains the production-grade embedded C implementation, Hardwar
 │   │       └── main_stm32.c          # STM32 SysTick 1ms super-loop entry point
 │   └── main.c                        # Bare-metal super-loop demonstration
 ├── tests/
-│   ├── test_washing_machine.c        # Automated FSM test suite (28 test cases, 100% pass)
+│   ├── test_washing_machine.c        # Automated FSM test suite (34 test cases, 100% pass)
 │   └── test_hal_engines.c            # Automated HAL test suite (debouncing, pulses, blinkers)
 └── sim/
     ├── sim_interactive.c             # Interactive CLI simulator with live dashboard
@@ -76,7 +82,7 @@ This repository contains the production-grade embedded C implementation, Hardwar
 
 ### 4.1 Running the Automated Test Suite (100% Coverage)
 ```bash
-# Compile and execute all 28 test cases
+# Compile and execute all 34 test cases
 mingw32-make test
 # or with standard make:
 make test
@@ -89,7 +95,7 @@ Expected output:
  CO3053 Embedded Systems - HCMUT
 ============================================================
 
-  [PASS] TC-01: Sub-threshold Deposit (10¢ + 20¢ stays in STANDBY)
+  [PASS] TC-01: Sub-threshold Deposit (10¢ + 20¢ stays in COLLECTING, RLED on)
   [PASS] TC-02: Exact Threshold Deposit (50¢ transitions to READY)
   [PASS] TC-03: Surplus Deposit Accumulation (Accepts 60¢, 110¢ in READY)
   [PASS] TC-04: Execution & Zero Refund (70¢ cleared to 0¢, 30-min timer active)
@@ -115,8 +121,12 @@ Expected output:
   [PASS] TC-24: Granular Fault Diagnostics (Multi-sensor bitmask tracking and string reports)
   [PASS] TC-25: Arithmetic Overflow Resilience (MISRA-C Rule 12.4 wrap-around defense)
   [PASS] TC-26: Multi-Phase Wash Profile (Agitate -> Spin/Drain -> Complete verified)
-  [PASS] TC-27: Event Acceptance Query Protocol (Deterministic event filtering across all 5 states)
+  [PASS] TC-27: Event Acceptance Query Protocol (Deterministic event filtering across the states)
   [PASS] TC-28: Cycle Sub-Phase Query & Enum Decoders (Correct phase detection throughout cycle)
+  [PASS] TC-31: COLLECTING State (RLED on until the 50¢ threshold, then READY)
+  [PASS] TC-32: Cancel Returns Deposit (STOP x2 in COLLECTING/READY refunds; RUN still zero-refund)
+  [PASS] TC-33: Fault Preserves Deposit (COLLECTING/READY restored after the fault is cleared)
+  [PASS] TC-34: Fault During Cycle (timer keeps counting, cleared fault resumes in PAUSED, expiry respected)
   [PASS] TC-29: Pause Across Phase Boundary (Continuous timer crosses into Spin)
   [PASS] TC-30: MISRA-C Boundary & Corrupted Enum Resilience (100% defensive branch safety)
 
@@ -164,9 +174,13 @@ mingw32-make sim
 - `e1`: Simulate Lid Open Fault
 - `e2`: Simulate Water Timeout Fault
 - `e3`: Simulate Motor Overcurrent Fault
-- `c`: Clear hardware faults and recover to STANDBY
+- `c`: Clear hardware faults and recover to the state before the fault
 - `q`: Quit simulator
 
 ### 4.6 Running Interactive Wokwi Web Simulation
 Open [https://wokwi.com/projects/new/arduino-uno](https://wokwi.com/projects/new/arduino-uno), paste [`sim/wokwi/diagram.json`](./sim/wokwi/diagram.json) into the diagram tab and [`sim/wokwi/sketch.ino`](./sim/wokwi/sketch.ino) into the code tab, add `LiquidCrystal I2C` library, and click **Play** to run interactive simulation in your browser!
 
+## Chạy trên board WeAct STM32H750
+
+Hướng dẫn sử dụng đầy đủ: [`HDSD_BOARD_WEACT_H750.md`](HDSD_BOARD_WEACT_H750.md). Tóm tắt kỹ thuật: [`board/weact_h750/README.md`](board/weact_h750/README.md): `make h750`, `make flash`
+(USB-DFU hoặc ST-Link), hiển thị trạng thái trên LCD 0.96" và điều khiển FSM bằng nút K1 (click / double-click / giữ).

@@ -38,6 +38,7 @@ typedef struct {
     void (*set_drain_pump)(bool on);
     void (*set_door_lock)(bool locked);
     void (*on_cycle_complete)(void);
+    void (*return_coins)(uint32_t cents);   /**< Optional: coin return on user cancel (STOP x2 in COLLECTING/READY) */
 } hal_output_callbacks_t;
 
 #ifdef __cplusplus

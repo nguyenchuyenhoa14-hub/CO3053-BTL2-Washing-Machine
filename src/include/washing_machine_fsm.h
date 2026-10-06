@@ -20,7 +20,8 @@ extern "C" {
  * @brief States of the Washing Machine Control Unit
  */
 typedef enum {
-    WM_STATE_STANDBY = 0,   /**< Available to serve; RLED=ON, BLED=OFF */
+    WM_STATE_STANDBY = 0,   /**< Available to serve, no money inserted; RLED=ON, BLED=OFF */
+    WM_STATE_COLLECTING,    /**< 0 < deposit < 50¢; RLED=ON, BLED=OFF (STOP x2 cancels and returns the coins) */
     WM_STATE_READY,         /**< Deposit >= 50¢; RLED=OFF, BLED=ON */
     WM_STATE_RUNNING,       /**< Actuators working; BLED=BLINK(1Hz), Timer ticking */
     WM_STATE_PAUSED,        /**< Actuators stopped; Timer continues ticking down */
@@ -65,6 +66,7 @@ typedef struct {
     uint32_t active_error_flags;        /**< Bitmask of active system faults */
     hal_output_callbacks_t callbacks;   /**< HAL output driver callbacks */
     uint32_t cycle_duration_setting;    /**< Configurable total cycle time (default 1800s) */
+    wm_state_t state_before_error;      /**< State to return to when a fault is cleared (see WM_ERROR_RESUMES_CYCLE) */
 } wm_context_t;
 
 /**

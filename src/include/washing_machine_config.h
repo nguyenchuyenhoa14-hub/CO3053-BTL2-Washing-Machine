@@ -48,6 +48,17 @@ extern "C" {
 #define WM_RLED_BLINK_PERIOD_MS        (500U)
 
 /**
+ * @brief Fault recovery policy (1 = resume, 0 = legacy "abandon").
+ * @details 1: the state before a fault is remembered. Deposits are kept (STANDBY/COLLECTING/READY return
+ *          to themselves); a RUNNING/PAUSED cycle returns to PAUSED when the fault is cleared and its
+ *          timer keeps counting during the fault (same rule as PAUSE). 0: clearing a fault always
+ *          returns to STANDBY with the deposit and the cycle discarded.
+ */
+#ifndef WM_ERROR_RESUMES_CYCLE
+#define WM_ERROR_RESUMES_CYCLE         (1)
+#endif
+
+/**
  * @brief Diagnostic bitmasks for safety faults (Sensor inputs)
  */
 #define WM_FAULT_NONE                  (0x00U)
