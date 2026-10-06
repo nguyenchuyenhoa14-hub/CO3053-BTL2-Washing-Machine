@@ -22,6 +22,9 @@ typedef struct {
     bool drain_pump_on;
     bool door_locked;
     uint32_t cycle_complete_count;
+    uint32_t refund_count;          /**< Number of return_coins() calls */
+    uint32_t refunded_cents;        /**< Sum of cents returned */
+    uint32_t last_refund_cents;
 } mock_hal_state_t;
 
 /**

@@ -33,6 +33,31 @@ static void enter_ready(wm_context_t *ctx) {
     CALL_HAL(&ctx->callbacks, set_bled, HAL_LED_ON);
 }
 
+static void enter_collecting(wm_context_t *ctx) {
+    ctx->state = WM_STATE_COLLECTING;
+    ctx->stop_press_count = 0;
+    ctx->stop_window_timer_ms = 0;
+    CALL_HAL(&ctx->callbacks, set_rled, HAL_LED_ON);
+    CALL_HAL(&ctx->callbacks, set_bled, HAL_LED_OFF);
+}
+
+#if WM_ERROR_RESUMES_CYCLE
+/* Re-enter the idle-side state that matches the deposit WITHOUT touching the deposit */
+static void restore_idle(wm_context_t *ctx) {
+    if (ctx->coin_balance_cents >= WM_COIN_THRESHOLD_CENTS) {
+        enter_ready(ctx);
+    } else if (ctx->coin_balance_cents > 0) {
+        enter_collecting(ctx);
+    } else {
+        enter_standby(ctx);
+    }
+}
+
+static bool cycle_in_progress(const wm_context_t *ctx) {
+    return ctx->state_before_error == WM_STATE_RUNNING || ctx->state_before_error == WM_STATE_PAUSED;
+}
+#endif
+
 static void update_running_actuators(wm_context_t *ctx) {
     uint32_t total = (ctx->cycle_duration_setting > 0) ?
                       ctx->cycle_duration_setting : WM_CYCLE_DURATION_SEC;
@@ -79,10 +104,14 @@ static void enter_paused(wm_context_t *ctx) {
     CALL_HAL(&ctx->callbacks, set_motor, HAL_MOTOR_OFF);
     CALL_HAL(&ctx->callbacks, set_water_valve, false);
     CALL_HAL(&ctx->callbacks, set_drain_pump, false);
+    CALL_HAL(&ctx->callbacks, set_rled, HAL_LED_OFF);
     CALL_HAL(&ctx->callbacks, set_bled, HAL_LED_ON);
 }
 
 static void enter_error(wm_context_t *ctx) {
+    if (ctx->state != WM_STATE_ERROR) {
+        ctx->state_before_error = ctx->state;   /* a second fault keeps the original context */
+    }
     ctx->state = WM_STATE_ERROR;
     ctx->stop_press_count = 0;
     ctx->stop_window_timer_ms = 0;
@@ -106,6 +135,7 @@ void wm_fsm_init(wm_context_t *ctx, const hal_output_callbacks_t *callbacks) {
     ctx->stop_window_timer_ms = 0;
     ctx->active_error_flags = WM_FAULT_NONE;
     ctx->cycle_duration_setting = WM_CYCLE_DURATION_SEC;
+    ctx->state_before_error = WM_STATE_STANDBY;
 
     if (callbacks) {
         ctx->callbacks = *callbacks;
@@ -118,18 +148,21 @@ void wm_fsm_init(wm_context_t *ctx, const hal_output_callbacks_t *callbacks) {
         ctx->callbacks.set_drain_pump = NULL;
         ctx->callbacks.set_door_lock = NULL;
         ctx->callbacks.on_cycle_complete = NULL;
+        ctx->callbacks.return_coins = NULL;
     }
 
     enter_standby(ctx);
 }
 
 static bool handle_coin_deposit(wm_context_t *ctx, uint32_t amount) {
-    if (ctx->state == WM_STATE_STANDBY) {
+    if (ctx->state == WM_STATE_STANDBY || ctx->state == WM_STATE_COLLECTING) {
         if (ctx->coin_balance_cents <= (UINT32_MAX - amount)) {
             ctx->coin_balance_cents += amount;
         }
         if (ctx->coin_balance_cents >= WM_COIN_THRESHOLD_CENTS) {
             enter_ready(ctx);
+        } else {
+            enter_collecting(ctx);
         }
         return true;
     } else if (ctx->state == WM_STATE_READY) {
@@ -157,6 +190,12 @@ static bool handle_stop_button(wm_context_t *ctx) {
         /* Second press within window: Force Stop confirmed! */
         ctx->stop_press_count = 0;
         ctx->stop_window_timer_ms = 0;
+        /* User cancel before RUN: give the deposit back instead of silently discarding it.
+         * (RUN itself still follows the zero-refund policy: surplus is never returned.) */
+        if ((ctx->state == WM_STATE_READY || ctx->state == WM_STATE_COLLECTING) &&
+            ctx->coin_balance_cents > 0) {
+            CALL_HAL(&ctx->callbacks, return_coins, ctx->coin_balance_cents);
+        }
         ctx->coin_balance_cents = 0;
         enter_standby(ctx);
         return true;
@@ -177,6 +216,44 @@ static bool handle_1s_timer_tick(wm_context_t *ctx) {
         return true;
     }
     return false;
+}
+
+#if WM_ERROR_RESUMES_CYCLE
+/* Timer keeps counting during a fault when a cycle was in progress (same rule as PAUSE) */
+static bool handle_error_tick(wm_context_t *ctx) {
+    if (!cycle_in_progress(ctx)) {
+        return false;
+    }
+    if (ctx->remaining_cycle_sec > 1) {
+        ctx->remaining_cycle_sec--;
+        return true;
+    }
+    if (ctx->remaining_cycle_sec == 1) {
+        ctx->remaining_cycle_sec = 0;
+        ctx->state_before_error = WM_STATE_STANDBY;   /* cycle finished while faulted */
+        CALL_HAL_VOID(&ctx->callbacks, on_cycle_complete);
+        return true;
+    }
+    return false;
+}
+#endif
+
+static bool handle_fault_cleared(wm_context_t *ctx) {
+    ctx->active_error_flags = WM_FAULT_NONE;
+#if WM_ERROR_RESUMES_CYCLE
+    if (cycle_in_progress(ctx) && ctx->remaining_cycle_sec > 0) {
+        enter_paused(ctx);          /* safe: the user presses RUN to continue */
+    } else {
+        if (cycle_in_progress(ctx)) {
+            ctx->coin_balance_cents = 0;
+        }
+        restore_idle(ctx);          /* deposit is kept */
+    }
+#else
+    ctx->coin_balance_cents = 0;
+    enter_standby(ctx);
+#endif
+    return true;
 }
 
 bool wm_fsm_dispatch_event(wm_context_t *ctx, wm_event_t event) {
@@ -214,6 +291,20 @@ bool wm_fsm_dispatch_event(wm_context_t *ctx, wm_event_t event) {
                     return handle_coin_deposit(ctx, 50);
                 default:
                     /* All button presses ignored in Standby */
+                    return false;
+            }
+
+        case WM_STATE_COLLECTING:
+            switch (event) {
+                case WM_EVT_COIN_10:
+                    return handle_coin_deposit(ctx, 10);
+                case WM_EVT_COIN_20:
+                    return handle_coin_deposit(ctx, 20);
+                case WM_EVT_COIN_50:
+                    return handle_coin_deposit(ctx, 50);
+                case WM_EVT_BTN_STOP:
+                    return handle_stop_button(ctx);
+                default:
                     return false;
             }
 
@@ -263,11 +354,13 @@ bool wm_fsm_dispatch_event(wm_context_t *ctx, wm_event_t event) {
 
         case WM_STATE_ERROR:
             if (event == WM_EVT_FAULT_CLEARED) {
-                ctx->active_error_flags = WM_FAULT_NONE;
-                ctx->coin_balance_cents = 0;
-                enter_standby(ctx);
-                return true;
+                return handle_fault_cleared(ctx);
             }
+#if WM_ERROR_RESUMES_CYCLE
+            if (event == WM_EVT_TIMER_TICK_1S) {
+                return handle_error_tick(ctx);
+            }
+#endif
             return false;
 
         default:
@@ -297,6 +390,7 @@ void wm_fsm_tick_1s(wm_context_t *ctx) {
 const char* wm_state_to_str(wm_state_t state) {
     switch (state) {
         case WM_STATE_STANDBY: return "STANDBY";
+        case WM_STATE_COLLECTING: return "COLLECTING";
         case WM_STATE_READY:   return "READY";
         case WM_STATE_RUNNING: return "RUNNING";
         case WM_STATE_PAUSED:  return "PAUSED";
@@ -378,6 +472,10 @@ bool wm_fsm_can_accept_event(const wm_context_t *ctx, wm_event_t event) {
         case WM_STATE_STANDBY:
             return (event == WM_EVT_COIN_10 || event == WM_EVT_COIN_20 || event == WM_EVT_COIN_50);
 
+        case WM_STATE_COLLECTING:
+            return (event == WM_EVT_COIN_10 || event == WM_EVT_COIN_20 || event == WM_EVT_COIN_50 ||
+                    event == WM_EVT_BTN_STOP);
+
         case WM_STATE_READY:
             return (event == WM_EVT_COIN_10 || event == WM_EVT_COIN_20 || event == WM_EVT_COIN_50 ||
                     event == WM_EVT_BTN_RUN || event == WM_EVT_BTN_STOP);
@@ -391,6 +489,11 @@ bool wm_fsm_can_accept_event(const wm_context_t *ctx, wm_event_t event) {
                     (event == WM_EVT_TIMER_TICK_1S && ctx->remaining_cycle_sec > 0));
 
         case WM_STATE_ERROR:
+#if WM_ERROR_RESUMES_CYCLE
+            if (event == WM_EVT_TIMER_TICK_1S) {
+                return cycle_in_progress(ctx) && ctx->remaining_cycle_sec > 0;
+            }
+#endif
             return (event == WM_EVT_FAULT_CLEARED);
 
         default:

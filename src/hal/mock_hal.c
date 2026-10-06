@@ -36,6 +36,12 @@ static void mock_on_cycle_complete(void) {
     g_mock_state.cycle_complete_count++;
 }
 
+static void mock_return_coins(uint32_t cents) {
+    g_mock_state.refund_count++;
+    g_mock_state.refunded_cents += cents;
+    g_mock_state.last_refund_cents = cents;
+}
+
 void mock_hal_reset(void) {
     memset(&g_mock_state, 0, sizeof(g_mock_state));
 }
@@ -52,7 +58,8 @@ hal_output_callbacks_t mock_hal_get_callbacks(void) {
         .set_water_valve = mock_set_water_valve,
         .set_drain_pump = mock_set_drain_pump,
         .set_door_lock = mock_set_door_lock,
-        .on_cycle_complete = mock_on_cycle_complete
+        .on_cycle_complete = mock_on_cycle_complete,
+        .return_coins = mock_return_coins
     };
     return cbs;
 }

@@ -29,6 +29,7 @@ static void print_dashboard(const wm_context_t *ctx, const mock_hal_state_t *hal
     printf(" [STATE]     : ");
     switch (ctx->state) {
         case WM_STATE_STANDBY: printf(ANSI_GREEN "[ STANDBY ]" ANSI_RESET " (Available to serve)\n"); break;
+        case WM_STATE_COLLECTING: printf(ANSI_GREEN "[COLLECTING]" ANSI_RESET " (Deposit < 50¢; insert more or STOP twice to cancel)\n"); break;
         case WM_STATE_READY:   printf(ANSI_BLUE  "[  READY  ]" ANSI_RESET " (Deposit >= 50¢; Press RUN)\n"); break;
         case WM_STATE_RUNNING: printf(ANSI_YELLOW"[ RUNNING ]" ANSI_RESET " (Washing active)\n"); break;
         case WM_STATE_PAUSED:  printf(ANSI_YELLOW"[ PAUSED  ]" ANSI_RESET " (Suspended; Timer counting down!)\n"); break;

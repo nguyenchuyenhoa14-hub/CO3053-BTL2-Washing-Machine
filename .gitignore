@@ -16,3 +16,10 @@ assignment1/
 # Temporary / OS
 .DS_Store
 Thumbs.db
+
+# Build output
+build/
+test_gesture_runner
+
+# Local clone of the WeAct board SDK (721 MB, reference only)
+MiniSTM32H7xx/

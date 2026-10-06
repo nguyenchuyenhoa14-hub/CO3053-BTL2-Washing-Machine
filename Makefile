@@ -48,3 +48,7 @@ stm32: $(SRC) $(SRC_HAL) $(SRC_STM32) src/hal/stm32/main_stm32.c
 
 clean:
 	$(RM)
+	-rm -rf build test_gesture_runner
+
+# WeAct STM32H750 board: build, flash, LCD preview
+include board/weact_h750/board.mk

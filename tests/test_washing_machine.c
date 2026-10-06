@@ -63,15 +63,15 @@ static void test_tc01_sub_threshold_deposit(void) {
 
     wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_10);
     TEST_ASSERT(ctx.coin_balance_cents == 10, "Balance must be 10¢");
-    TEST_ASSERT(ctx.state == WM_STATE_STANDBY, "10¢ must stay in STANDBY");
+    TEST_ASSERT(ctx.state == WM_STATE_COLLECTING, "10¢ (< 50¢) must enter COLLECTING");
 
     wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_20);
     TEST_ASSERT(ctx.coin_balance_cents == 30, "Balance must be 30¢");
-    TEST_ASSERT(ctx.state == WM_STATE_STANDBY, "30¢ must stay in STANDBY");
+    TEST_ASSERT(ctx.state == WM_STATE_COLLECTING, "30¢ must stay in COLLECTING");
     TEST_ASSERT(mock_hal_get_state()->rled == HAL_LED_ON, "RLED must stay ON");
     TEST_ASSERT(mock_hal_get_state()->bled == HAL_LED_OFF, "BLED must stay OFF");
 
-    TEST_PASS("TC-01: Sub-threshold Deposit (10¢ + 20¢ stays in STANDBY)");
+    TEST_PASS("TC-01: Sub-threshold Deposit (10¢ + 20¢ stays in COLLECTING, RLED on)");
 }
 
 /* -------------------------------------------------------------------------- */
@@ -103,7 +103,7 @@ static void test_tc03_surplus_deposit_accumulation(void) {
 
     wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_20);
     wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_20);
-    TEST_ASSERT(ctx.state == WM_STATE_STANDBY, "40¢ remains STANDBY");
+    TEST_ASSERT(ctx.state == WM_STATE_COLLECTING, "40¢ remains COLLECTING");
 
     wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_20);
     TEST_ASSERT(ctx.coin_balance_cents == 60, "Balance accumulated to 60¢");
@@ -155,12 +155,13 @@ static void test_tc05_premature_run_attempt(void) {
     wm_fsm_init(&ctx, &cbs);
 
     wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_20);
-    TEST_ASSERT(ctx.state == WM_STATE_STANDBY, "Must be in STANDBY");
+    TEST_ASSERT(ctx.state == WM_STATE_COLLECTING, "Must be in COLLECTING");
 
     /* User presses RUN without sufficient money */
     bool handled = wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_RUN);
     TEST_ASSERT(handled == false, "Premature RUN must be rejected");
-    TEST_ASSERT(ctx.state == WM_STATE_STANDBY, "State must remain STANDBY");
+    TEST_ASSERT(ctx.state == WM_STATE_COLLECTING, "State must remain COLLECTING");
+    TEST_ASSERT(ctx.coin_balance_cents == 20, "Deposit untouched at 20¢");
     TEST_ASSERT(ctx.remaining_cycle_sec == 0, "Timer must not start");
     TEST_ASSERT(mock_hal_get_state()->motor == HAL_MOTOR_OFF, "Motor must remain OFF");
 
@@ -395,9 +396,16 @@ static void test_tc13_fault_interruption_and_recovery(void) {
 
     /* Clear fault */
     wm_fsm_dispatch_event(&ctx, WM_EVT_FAULT_CLEARED);
+#if WM_ERROR_RESUMES_CYCLE
+    TEST_ASSERT(ctx.state == WM_STATE_PAUSED, "Clearing a fault in a running cycle returns to PAUSED (safe resume)");
+    TEST_ASSERT(mock_hal_get_state()->rled == HAL_LED_OFF, "RLED stops blinking");
+    TEST_ASSERT(mock_hal_get_state()->bled == HAL_LED_ON, "BLED solid ON while paused");
+    TEST_ASSERT(mock_hal_get_state()->motor == HAL_MOTOR_OFF, "Motor stays OFF until the user presses RUN");
+#else
     TEST_ASSERT(ctx.state == WM_STATE_STANDBY, "Clearing fault must return to STANDBY");
     TEST_ASSERT(mock_hal_get_state()->rled == HAL_LED_ON, "RLED returns to solid ON");
     TEST_ASSERT(mock_hal_get_state()->bled == HAL_LED_OFF, "BLED returns to OFF");
+#endif
 
     TEST_PASS("TC-13: Fault Interruption and Recovery (Safety shutdown & error reset)");
 }
@@ -543,6 +551,8 @@ static void test_tc18_ready_state_double_stop_cancellation(void) {
     /* Must cancel back to STANDBY, balance cleared */
     TEST_ASSERT(wm_fsm_get_state(&ctx) == WM_STATE_STANDBY, "Must cancel back to STANDBY");
     TEST_ASSERT(wm_fsm_get_balance(&ctx) == 0, "Deposit cleared");
+    TEST_ASSERT(mock_hal_get_state()->refund_count == 1 && mock_hal_get_state()->last_refund_cents == 60,
+                "Cancelled deposit (60¢) is returned, not silently lost");
     TEST_ASSERT(mock_hal_get_state()->rled == HAL_LED_ON, "RLED must be ON");
     TEST_ASSERT(mock_hal_get_state()->bled == HAL_LED_OFF, "BLED must be OFF");
 
@@ -646,7 +656,12 @@ static void test_tc21_consecutive_multi_cycle_sessions(void) {
     wm_fsm_dispatch_event(&ctx, WM_EVT_FAULT_OCCURRED);
     TEST_ASSERT(ctx.state == WM_STATE_ERROR, "S3: Fault caught");
     wm_fsm_dispatch_event(&ctx, WM_EVT_FAULT_CLEARED);
-    TEST_ASSERT(ctx.state == WM_STATE_STANDBY, "S3: Fault cleared to STANDBY");
+#if WM_ERROR_RESUMES_CYCLE
+    TEST_ASSERT(ctx.state == WM_STATE_PAUSED, "S3: Fault cleared to PAUSED (cycle kept)");
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_STOP);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_STOP);
+#endif
+    TEST_ASSERT(ctx.state == WM_STATE_STANDBY, "S3: Session ends in STANDBY");
 
     TEST_PASS("TC-21: Consecutive Multi-Cycle Sessions (Flawless back-to-back operations without leakage)");
 }
@@ -1034,6 +1049,191 @@ static void test_tc30_misra_c_boundary_and_corrupted_enum_resilience(void) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* TC-31: COLLECTING state (0 < deposit < 50¢)                               */
+/* -------------------------------------------------------------------------- */
+static void test_tc31_collecting_state(void) {
+    mock_hal_reset();
+    hal_output_callbacks_t cbs = mock_hal_get_callbacks();
+    wm_context_t ctx;
+    wm_fsm_init(&ctx, &cbs);
+
+    TEST_ASSERT(ctx.state == WM_STATE_STANDBY && ctx.coin_balance_cents == 0, "Starts in STANDBY with no money");
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_10);
+    TEST_ASSERT(ctx.state == WM_STATE_COLLECTING, "First coin enters COLLECTING");
+    TEST_ASSERT(mock_hal_get_state()->rled == HAL_LED_ON && mock_hal_get_state()->bled == HAL_LED_OFF,
+                "COLLECTING: RLED on, BLED off");
+    TEST_ASSERT(strcmp(wm_state_to_str(ctx.state), "COLLECTING") == 0, "State string is COLLECTING");
+
+    TEST_ASSERT(wm_fsm_can_accept_event(&ctx, WM_EVT_COIN_20), "COLLECTING accepts coins");
+    TEST_ASSERT(wm_fsm_can_accept_event(&ctx, WM_EVT_BTN_STOP), "COLLECTING accepts STOP (cancel)");
+    TEST_ASSERT(!wm_fsm_can_accept_event(&ctx, WM_EVT_BTN_RUN), "COLLECTING rejects RUN");
+    TEST_ASSERT(!wm_fsm_can_accept_event(&ctx, WM_EVT_BTN_PAUSE), "COLLECTING rejects PAUSE");
+
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_20);
+    TEST_ASSERT(ctx.state == WM_STATE_COLLECTING && ctx.coin_balance_cents == 30, "30¢ still COLLECTING");
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_20);
+    TEST_ASSERT(ctx.state == WM_STATE_READY && ctx.coin_balance_cents == 50, "Crossing 50¢ enters READY");
+    TEST_ASSERT(mock_hal_get_state()->bled == HAL_LED_ON && mock_hal_get_state()->rled == HAL_LED_OFF,
+                "READY: BLED on, RLED off");
+
+    TEST_PASS("TC-31: COLLECTING State (RLED on until the 50¢ threshold, then READY)");
+}
+
+/* -------------------------------------------------------------------------- */
+/* TC-32: User cancel returns the deposit; RUN still never refunds           */
+/* -------------------------------------------------------------------------- */
+static void test_tc32_cancel_returns_deposit(void) {
+    mock_hal_reset();
+    hal_output_callbacks_t cbs = mock_hal_get_callbacks();
+    wm_context_t ctx;
+    wm_fsm_init(&ctx, &cbs);
+
+    /* COLLECTING: 30¢, double STOP */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_10);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_20);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_STOP);
+    TEST_ASSERT(ctx.state == WM_STATE_COLLECTING && mock_hal_get_state()->refund_count == 0,
+                "Single STOP only arms the cancel");
+    helper_advance_ms(&ctx, 300);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_STOP);
+    TEST_ASSERT(ctx.state == WM_STATE_STANDBY && ctx.coin_balance_cents == 0, "Cancel -> STANDBY, deposit cleared");
+    TEST_ASSERT(mock_hal_get_state()->refund_count == 1 && mock_hal_get_state()->last_refund_cents == 30,
+                "30¢ returned on cancel from COLLECTING");
+
+    /* STANDBY: nothing to cancel */
+    TEST_ASSERT(!wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_STOP), "STOP ignored in STANDBY");
+    TEST_ASSERT(mock_hal_get_state()->refund_count == 1, "No refund call from STANDBY");
+
+    /* RUN keeps the zero-refund policy even with surplus */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_50);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_20);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_RUN);
+    TEST_ASSERT(ctx.state == WM_STATE_RUNNING && ctx.coin_balance_cents == 0, "RUN clears 70¢");
+    TEST_ASSERT(mock_hal_get_state()->refund_count == 1, "RUN never refunds the surplus (BR-02)");
+
+    /* Force stop of a running cycle: nothing left to return */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_STOP);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_STOP);
+    TEST_ASSERT(ctx.state == WM_STATE_STANDBY && mock_hal_get_state()->refund_count == 1,
+                "Force stop of a running cycle returns nothing");
+
+    /* NULL return_coins callback must not crash */
+    wm_context_t bare;
+    wm_fsm_init(&bare, NULL);
+    wm_fsm_dispatch_event(&bare, WM_EVT_COIN_20);
+    wm_fsm_dispatch_event(&bare, WM_EVT_BTN_STOP);
+    wm_fsm_dispatch_event(&bare, WM_EVT_BTN_STOP);
+    TEST_ASSERT(bare.state == WM_STATE_STANDBY && bare.coin_balance_cents == 0, "Cancel with NULL callbacks is safe");
+
+    TEST_PASS("TC-32: Cancel Returns Deposit (STOP x2 in COLLECTING/READY refunds; RUN still zero-refund)");
+}
+
+/* -------------------------------------------------------------------------- */
+/* TC-33: A fault no longer swallows the customer's money                    */
+/* -------------------------------------------------------------------------- */
+static void test_tc33_fault_preserves_deposit(void) {
+    mock_hal_reset();
+    hal_output_callbacks_t cbs = mock_hal_get_callbacks();
+    wm_context_t ctx;
+    wm_fsm_init(&ctx, &cbs);
+
+    /* Fault while COLLECTING */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_20);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_FAULT_OCCURRED);
+    TEST_ASSERT(ctx.state == WM_STATE_ERROR, "Fault in COLLECTING -> ERROR");
+    wm_fsm_dispatch_event(&ctx, WM_EVT_FAULT_CLEARED);
+#if WM_ERROR_RESUMES_CYCLE
+    TEST_ASSERT(ctx.state == WM_STATE_COLLECTING && ctx.coin_balance_cents == 20, "COLLECTING and 20¢ restored");
+    TEST_ASSERT(mock_hal_get_state()->rled == HAL_LED_ON && mock_hal_get_state()->bled == HAL_LED_OFF, "LEDs restored");
+#else
+    TEST_ASSERT(ctx.state == WM_STATE_STANDBY && ctx.coin_balance_cents == 0, "Legacy: deposit discarded");
+#endif
+
+    /* Fault while READY with surplus */
+    wm_fsm_init(&ctx, &cbs);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_50);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_20);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_FAULT_OCCURRED);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_FAULT_CLEARED);
+#if WM_ERROR_RESUMES_CYCLE
+    TEST_ASSERT(ctx.state == WM_STATE_READY && ctx.coin_balance_cents == 70, "READY and 70¢ restored");
+    TEST_ASSERT(mock_hal_get_state()->bled == HAL_LED_ON && mock_hal_get_state()->rled == HAL_LED_OFF, "BLED solid again");
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_RUN);
+    TEST_ASSERT(ctx.state == WM_STATE_RUNNING, "The paid customer can still RUN after the fault");
+#else
+    TEST_ASSERT(ctx.state == WM_STATE_STANDBY, "Legacy: STANDBY");
+#endif
+
+    /* Two faults in a row must not overwrite the remembered state */
+    wm_fsm_init(&ctx, &cbs);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_50);
+    wm_fsm_trigger_fault(&ctx, WM_FAULT_DOOR_OPEN);
+    wm_fsm_trigger_fault(&ctx, WM_FAULT_MOTOR_OVERCURRENT);
+    wm_fsm_clear_fault(&ctx);
+#if WM_ERROR_RESUMES_CYCLE
+    TEST_ASSERT(ctx.state == WM_STATE_READY && ctx.coin_balance_cents == 50, "Second fault keeps original context");
+#endif
+    TEST_ASSERT(wm_fsm_get_fault_flags(&ctx) == WM_FAULT_NONE, "All fault flags cleared");
+
+    TEST_PASS("TC-33: Fault Preserves Deposit (COLLECTING/READY restored after the fault is cleared)");
+}
+
+/* -------------------------------------------------------------------------- */
+/* TC-34: A fault during a paid cycle does not throw the cycle away          */
+/* -------------------------------------------------------------------------- */
+static void test_tc34_fault_during_cycle_resumes(void) {
+#if WM_ERROR_RESUMES_CYCLE
+    mock_hal_reset();
+    hal_output_callbacks_t cbs = mock_hal_get_callbacks();
+    wm_context_t ctx;
+    wm_fsm_init(&ctx, &cbs);
+    ctx.cycle_duration_setting = 60;
+
+    wm_fsm_dispatch_event(&ctx, WM_EVT_COIN_50);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_RUN);
+    helper_advance_sec(&ctx, 10);
+    TEST_ASSERT(ctx.remaining_cycle_sec == 50, "50 s left before the fault");
+
+    wm_fsm_dispatch_event(&ctx, WM_EVT_FAULT_OCCURRED);
+    TEST_ASSERT(ctx.state == WM_STATE_ERROR, "ERROR");
+    TEST_ASSERT(mock_hal_get_state()->motor == HAL_MOTOR_OFF && !mock_hal_get_state()->door_locked,
+                "Actuators cut and door released during the fault");
+    TEST_ASSERT(wm_fsm_can_accept_event(&ctx, WM_EVT_TIMER_TICK_1S), "Timer still runs in ERROR (cycle in progress)");
+    helper_advance_sec(&ctx, 5);
+    TEST_ASSERT(ctx.state == WM_STATE_ERROR && ctx.remaining_cycle_sec == 45, "Timer counted down 5 s during the fault");
+
+    wm_fsm_dispatch_event(&ctx, WM_EVT_FAULT_CLEARED);
+    TEST_ASSERT(ctx.state == WM_STATE_PAUSED && ctx.remaining_cycle_sec == 45, "Back to PAUSED with 45 s left");
+    TEST_ASSERT(mock_hal_get_state()->motor == HAL_MOTOR_OFF, "Not restarted automatically");
+
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_RUN);
+    TEST_ASSERT(ctx.state == WM_STATE_RUNNING && ctx.remaining_cycle_sec == 45, "RUN resumes, no reset to full time");
+    TEST_ASSERT(mock_hal_get_state()->door_locked && mock_hal_get_state()->motor != HAL_MOTOR_OFF,
+                "Door locked and wash resumed");
+
+    /* Fault while PAUSED */
+    wm_fsm_dispatch_event(&ctx, WM_EVT_BTN_PAUSE);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_FAULT_OCCURRED);
+    wm_fsm_dispatch_event(&ctx, WM_EVT_FAULT_CLEARED);
+    TEST_ASSERT(ctx.state == WM_STATE_PAUSED, "Fault while PAUSED also returns to PAUSED");
+
+    /* Cycle runs out while the machine is faulted */
+    mock_hal_reset();
+    wm_fsm_dispatch_event(&ctx, WM_EVT_FAULT_OCCURRED);
+    helper_advance_sec(&ctx, 60);
+    TEST_ASSERT(ctx.state == WM_STATE_ERROR && ctx.remaining_cycle_sec == 0, "Timer reached 0 while ERROR; still ERROR (RLED keeps blinking)");
+    TEST_ASSERT(mock_hal_get_state()->cycle_complete_count == 1, "Cycle completion reported once");
+    TEST_ASSERT(!wm_fsm_can_accept_event(&ctx, WM_EVT_TIMER_TICK_1S), "No more ticks accepted");
+    wm_fsm_dispatch_event(&ctx, WM_EVT_FAULT_CLEARED);
+    TEST_ASSERT(ctx.state == WM_STATE_STANDBY && ctx.coin_balance_cents == 0, "Finished cycle -> STANDBY after clearing");
+
+    TEST_PASS("TC-34: Fault During Cycle (timer keeps counting, cleared fault resumes in PAUSED, expiry respected)");
+#else
+    TEST_PASS("TC-34: skipped (WM_ERROR_RESUMES_CYCLE = 0, legacy abandon policy)");
+#endif
+}
+
+/* -------------------------------------------------------------------------- */
 /* Main Test Runner                                                          */
 /* -------------------------------------------------------------------------- */
 int main(void) {
@@ -1072,6 +1272,10 @@ int main(void) {
     test_tc28_cycle_sub_phase_query();
     test_tc29_pause_across_phase_boundary_transition();
     test_tc30_misra_c_boundary_and_corrupted_enum_resilience();
+    test_tc31_collecting_state();
+    test_tc32_cancel_returns_deposit();
+    test_tc33_fault_preserves_deposit();
+    test_tc34_fault_during_cycle_resumes();
 
     printf("\n" ANSI_CYAN "============================================================\n" ANSI_RESET);
     if (g_tests_failed == 0) {
