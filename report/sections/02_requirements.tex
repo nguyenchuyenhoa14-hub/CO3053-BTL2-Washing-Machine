@@ -1,0 +1,136 @@
+% =============================================================================
+\section{System Requirements}
+\label{sec:requirements}
+% =============================================================================
+
+\subsection{Inputs}
+
+Table~\ref{tab:inputs} lists the logical inputs of the controller. ``Logical'' means the input as
+seen by the FSM; Section~\ref{sec:hardware} explains how each one is produced on the board.
+
+\begin{table}[H]
+  \centering
+  \caption{Logical inputs of the control unit}
+  \label{tab:inputs}
+  \small
+  \begin{tabularx}{\linewidth}{lL{4.4cm}Y}
+    \toprule
+    \textbf{Input} & \textbf{FSM event} & \textbf{Meaning} \\
+    \midrule
+    STOP        & \code{WM_EVT_BTN_STOP}       & One press of STOP. Two presses within 1.5\,s = force stop. \\
+    RUN         & \code{WM_EVT_BTN_RUN}        & Start a cycle (from READY) or resume (from PAUSED). \\
+    PAUSE       & \code{WM_EVT_BTN_PAUSE}      & Suspend washing; the timer keeps counting. \\
+    Coin 10\cent & \code{WM_EVT_COIN_10}       & A 10-cent coin was accepted. \\
+    Coin 20\cent & \code{WM_EVT_COIN_20}       & A 20-cent coin was accepted. \\
+    Coin 50\cent & \code{WM_EVT_COIN_50}       & A 50-cent coin was accepted. \\
+    Error signal & \code{WM_EVT_FAULT_OCCURRED} & A safety fault (door open, water timeout, motor overcurrent). \\
+    Error cleared & \code{WM_EVT_FAULT_CLEARED} & The fault has been removed / acknowledged. \\
+    1\,ms tick  & \code{wm_fsm_tick_1ms()}      & Time base for the STOP double-press window. \\
+    1\,s tick   & \code{WM_EVT_TIMER_TICK_1S}  & Time base for the 30-minute countdown. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Outputs}
+
+\begin{table}[H]
+  \centering
+  \caption{Outputs of the control unit}
+  \label{tab:outputs}
+  \begin{tabularx}{\linewidth}{lL{3.8cm}Y}
+    \toprule
+    \textbf{Output} & \textbf{Values} & \textbf{Meaning} \\
+    \midrule
+    RLED  & OFF / ON / BLINK 2\,Hz & ON = standby (available); blinking = error. \\
+    BLED  & OFF / ON / BLINK 1\,Hz & ON = ready (or paused); blinking = washing. \\
+    Motor & OFF / AGITATE / SPIN   & Washing enable. AGITATE in the first 5/6 of the cycle, SPIN in the last 1/6. \\
+    Drain pump  & on / off & On during the final spin. \\
+    Water valve & open / closed & Kept closed in this version (no fill sensor). \\
+    Door lock   & locked / unlocked & Locked while a cycle is active, released on stop/error. \\
+    Coin return & amount (\cent) & Only when a deposit is cancelled \emph{before} RUN (see A6). \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Functional requirements}
+
+\begin{longtable}{L{1.3cm}L{13.2cm}}
+  \caption{Functional requirements}\label{tab:fr}\\
+  \toprule
+  \textbf{ID} & \textbf{Requirement} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{ID} & \textbf{Requirement} \\
+  \midrule
+  \endhead
+  FR-01 & The machine accepts only 10\cent, 20\cent{} and 50\cent{} coins and accumulates their value. \\
+  FR-02 & The machine can execute only when the accumulated balance is $\geq 50$\cent{}; BLED is then ON. \\
+  FR-03 & Surplus money is not refunded: when RUN starts the cycle, the whole balance is cleared to 0. \\
+  FR-04 & Pressing RUN in READY starts the washing cycle and activates a 30-minute timer. \\
+  FR-05 & The cycle lasts 30 minutes (1800\,s). \\
+  FR-06 & Pressing PAUSE while running stops washing, but the timer keeps counting down. \\
+  FR-07 & Pressing RUN while paused resumes washing with the \emph{remaining} time (timer not reset). \\
+  FR-08 & Pressing STOP twice forces the machine to stop and return to standby. A single press has no effect. \\
+  FR-09 & When the timer reaches 0 (running \emph{or} paused) the machine returns to standby automatically. \\
+  FR-10 & LED indication: RLED ON in standby, RLED blinking on error, BLED ON when ready, BLED blinking when running. \\
+  FR-11 & When an error occurs, all actuators are switched off immediately and RLED blinks. \\
+  \bottomrule
+\end{longtable}
+
+\subsection{Non-functional requirements}
+
+\begin{itemize}
+  \item \textbf{NFR-01 Non-blocking.} No busy-wait delay in the control loop; every timing
+        (debounce, blink, double press, 30-minute timer) is derived from a 1\,ms tick.
+  \item \textbf{NFR-02 Deterministic.} The FSM is a pure function of (state, event); the same event
+        sequence always gives the same outputs, so it can be tested on a PC.
+  \item \textbf{NFR-03 Portable.} The FSM does not touch registers; outputs go through a
+        callback table so the same code runs on the PC, the simulator and the STM32.
+  \item \textbf{NFR-04 Robust.} Defensive checks for NULL pointers, counter overflow and unknown
+        enum values (MISRA-C style).
+\end{itemize}
+
+\subsection{Assumptions made by the team}
+\label{sec:assumptions}
+
+The statement leaves several points open. The team fixed them as follows; every assumption is
+covered by at least one automated test.
+
+\begin{longtable}{L{0.8cm}L{13.7cm}}
+  \caption{Design assumptions}\label{tab:assumptions}\\
+  \toprule
+  \textbf{ID} & \textbf{Assumption} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{ID} & \textbf{Assumption} \\
+  \midrule
+  \endhead
+  A1 & \textbf{Double STOP window = 1.5\,s.} The second STOP must arrive within 1500\,ms of the
+       first; otherwise the first press is discarded. A single press never stops the machine. \\
+  A2 & \textbf{Buttons ignored in STANDBY.} RUN, PAUSE and STOP have no effect when no money has
+       been inserted. RUN with less than 50\cent{} is also ignored. \\
+  A3 & \textbf{Coins after READY.} Coins inserted in READY are still accepted (balance grows) and are
+       cleared on RUN (no refund). Coins are rejected in RUNNING, PAUSED and ERROR. \\
+  A4 & \textbf{BLED in PAUSED is solid ON.} The statement does not define it; solid ON means
+       ``ready to continue'' and is clearly different from blinking (running). \\
+  A5 & \textbf{COLLECTING state.} $0 < \text{balance} < 50$\cent{} is a separate state. For the user it
+       looks like STANDBY (RLED ON, BLED OFF), but STOP is meaningful there (A6). \\
+  A6 & \textbf{Cancel before RUN returns the deposit.} STOP$\times$2 in COLLECTING/READY returns the
+       deposit through the optional \code{return_coins()} callback. The no-refund rule applies only to
+       RUN (FR-03). \\
+  A7 & \textbf{Error source.} The statement mentions errors but not their source. Faults are
+       modelled as a bitmask (door open, water timeout, motor overcurrent) and are \emph{injected}
+       on the board for the demo. \\
+  A8 & \textbf{Error recovery keeps context.} Clearing a fault restores the deposit; a cycle that was
+       running or paused resumes in PAUSED and its timer kept counting during the fault (same rule as
+       PAUSE). Build option \code{WM_ERROR_RESUMES_CYCLE=0} gives the simple ``always return to
+       STANDBY'' behaviour. \\
+  A9 & \textbf{Wash profile.} The motor agitates during the first 5/6 of the cycle and spins with the
+       drain pump on during the last 1/6 (1500\,s + 300\,s). \\
+  A10 & \textbf{Demo time scale.} On the board the cycle is shortened to 30\,s so the whole cycle can be
+       shown live; \code{make h750 FULL_CYCLE=1} builds the real 1800\,s version. The PC tests always use
+       1800\,s. \\
+  \bottomrule
+\end{longtable}

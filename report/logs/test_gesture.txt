@@ -1,0 +1,34 @@
+=== Single-button gesture tests ===
+  [PASS] click is delayed until the double-click gap expires
+  [PASS] short press -> exactly one CLICK
+  [PASS] two short presses -> exactly one DOUBLE (no CLICK)
+  [PASS] hold 0.6 s -> HOLD1 while still pressed
+  [PASS] keep holding to 1.2 s -> HOLD2
+  [PASS] no repeat events while the key stays down
+  [PASS] no CLICK after a hold is released
+  [PASS] release between 0.6 s and 1.2 s -> HOLD1_END
+  [PASS] release after 1.2 s -> no HOLD1_END
+  [PASS] press-release-hold -> HOLD1, pending click dropped
+  [PASS] HOLD1->HOLD2 interval fits inside the FSM STOP double-press window
+  [PASS] init STANDBY
+  [PASS] DOUBLE in STANDBY -> +10c (COLLECTING)
+  [PASS] CLICK in STANDBY -> +50c -> READY
+  [PASS] CLICK in READY -> RUNNING
+  [PASS] CLICK in RUNNING -> PAUSED
+  [PASS] CLICK in PAUSED -> RUNNING (resume)
+  [PASS] DOUBLE while RUNNING -> door-open fault -> ERROR
+  [PASS] CLICK in ERROR -> cleared, cycle resumes in PAUSED
+  [PASS] STANDBY after clearing / force stop
+  [PASS] restart cycle
+  [PASS] HOLD1 only arms STOP
+  [PASS] HOLD2 completes force STOP -> STANDBY
+  [PASS] fault injected
+  [PASS] HOLD in ERROR clears the fault (deposit/cycle context restored by the FSM)
+  [PASS] ext RUN/PAUSE ignored in STANDBY
+  [PASS] ext RUN/PAUSE: READY -> RUNNING
+  [PASS] ext RUN/PAUSE: RUNNING -> PAUSED
+  [PASS] ext RUN/PAUSE: PAUSED -> RUNNING
+  [PASS] ext STOP: single press only arms
+  [PASS] ext STOP: double press -> STANDBY
+  [PASS] ext STOP clears ERROR
+Passed: 32, Failed: 0

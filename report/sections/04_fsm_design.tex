@@ -1,0 +1,178 @@
+% =============================================================================
+\section{Finite State Machine Design}
+\label{sec:fsm}
+% =============================================================================
+
+\subsection{Model}
+
+The controller is an \textbf{extended FSM} with 6 states and the context variables
+\begin{center}
+$b$ = \code{coin_balance_cents},\quad
+$t$ = \code{remaining_cycle_sec},\quad
+$n$ = \code{stop_press_count},\quad
+$w$ = \code{stop_window_timer_ms},\quad
+$T$ = cycle length (1800\,s).
+\end{center}
+LED outputs depend only on the state (Moore outputs, Table~\ref{tab:moore}); the updates of $b$,
+$t$, $n$ and the coin return are attached to transitions (Mealy actions, Table~\ref{tab:transitions}).
+Notation on the diagrams: \textit{event [guard] / action}; COIN($v$) stands for any of the three coin
+events with value $v \in \{10, 20, 50\}$.
+
+\subsection{State diagram}
+
+Figure~\ref{fig:fsm-main} shows normal operation; Figure~\ref{fig:fsm-error} shows how the
+ERROR state is entered from, and returns to, the rest of the machine. Transition numbers T$xx$
+refer to Table~\ref{tab:transitions}.
+
+\tikzset{
+  state/.style={circle, draw, thick, minimum size=2.3cm, align=center, font=\small\bfseries},
+  tr/.style={-{Stealth[length=2.6mm]}, thick},
+  lbl/.style={font=\scriptsize, align=center, fill=white, inner sep=1.5pt},
+}
+
+\begin{figure}[H]
+  \centering
+  \resizebox{\linewidth}{!}{%
+  \begin{tikzpicture}
+    \node[state, fill=stIdle]  (S) at (0,0)    {STANDBY\\[-1pt]\scriptsize\mdseries R:ON B:OFF};
+    \node[state, fill=stIdle]  (C) at (6,4.2)  {COLLECTING\\[-1pt]\scriptsize\mdseries R:ON B:OFF};
+    \node[state, fill=stReady] (R) at (14,4.2) {READY\\[-1pt]\scriptsize\mdseries R:OFF B:ON};
+    \node[state, fill=stRun]   (U) at (14,-4.2){RUNNING\\[-1pt]\scriptsize\mdseries R:OFF B:1Hz};
+    \node[state, fill=stPause] (P) at (6,-4.2) {PAUSED\\[-1pt]\scriptsize\mdseries R:OFF B:ON};
+
+    \begin{scope}[on background layer]
+      % power-on
+      \draw[tr] (-3.6,0) -- node[lbl, above=3pt, pos=0.4]{power-on} (S);
+
+      % payment
+      \draw[tr] (S) -- node[lbl, sloped, above=2pt, pos=0.5]{T01: COIN($v$) [$b{+}v<50$]} (C);
+      \draw[tr, dashed] (C) to[out=180,in=95] node[lbl, sloped, above=2pt, pos=0.5]{T06: STOP\,$\times$2 / return $b$} (S);
+      \draw[tr] (C) -- node[lbl, above=2pt]{T04: COIN($v$) [$b{+}v\geq 50$]} (R);
+      \draw[tr] (S) to[bend left=5] node[lbl, sloped, above=1pt, pos=0.68]{T02: COIN($v$) [$b{+}v\geq 50$]} (R);
+      \draw[tr, dashed] (R) to[bend left=6] node[lbl, sloped, below=1pt, pos=0.35]{T06: STOP\,$\times$2 / return $b$} (S);
+      \draw[tr] (C) to[out=65,in=115,looseness=5] node[lbl, above]{T03: COIN($v$) [$b{+}v<50$] / $b{+}{=}v$} (C);
+      \draw[tr] (R) to[out=65,in=115,looseness=5] node[lbl, above]{T07: COIN($v$) / $b{+}{=}v$ (surplus)} (R);
+
+      % run / pause
+      \draw[tr] (R) -- node[lbl, right=3pt, align=left]{T08: RUN\\/ $b{:=}0$, $t{:=}T$,\\lock door, motor ON} (U);
+      \draw[tr] (U) to[bend left=14] node[lbl, below=2pt]{T09: PAUSE / motor OFF} (P);
+      \draw[tr] (P) to[bend left=14] node[lbl, above=2pt]{T14: RUN / resume ($t$ kept)} (U);
+      \draw[tr] (U) to[out=-25,in=25,looseness=5] node[lbl, right, align=left]{T10: TICK$_{1s}$ [$t>1$]\\/ $t{-}{-}$, update phase} (U);
+      \draw[tr] (P) to[out=-65,in=-115,looseness=5] node[lbl, below]{T15: TICK$_{1s}$ [$t>1$] / $t{-}{-}$ (timer continues)} (P);
+
+      % end of cycle
+      \draw[tr] (P) -- node[lbl, sloped, above=2pt, pos=0.45, align=center]{T16: TICK$_{1s}$ [$t=1$]\\T13: STOP\,$\times$2} (S);
+      \draw[tr] (U) .. controls (12,-11) and (-2,-10) .. node[lbl, pos=0.55, below=2pt]{T11: TICK$_{1s}$ [$t=1$] / cycle complete \;|\; T13: STOP\,$\times$2 / force stop} (S);
+    \end{scope}
+  \end{tikzpicture}}
+  \caption{State diagram -- normal operation (single STOP presses, T05/T12, only arm the 1.5\,s window and are not drawn)}
+  \label{fig:fsm-main}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \resizebox{0.95\linewidth}{!}{%
+  \begin{tikzpicture}
+    \node[draw, thick, rounded corners, fill=gray!10, align=center, minimum width=3.6cm, minimum height=1.7cm, font=\small]
+      (ANY) at (0,0) {any state $X \neq$ ERROR\\\scriptsize STANDBY, COLLECTING,\\\scriptsize READY, RUNNING, PAUSED};
+    \node[state, fill=stErr] (E) at (8,0) {ERROR\\[-1pt]\scriptsize\mdseries R:2Hz B:OFF};
+    \node[state, fill=stPause, minimum size=2cm] (P) at (15.5,2.6) {PAUSED};
+    \node[draw, thick, rounded corners, fill=stIdle, align=center, minimum width=3.2cm, minimum height=1.4cm, font=\small\bfseries]
+      (I) at (15.5,-2.6) {STANDBY /\\COLLECTING /\\READY};
+
+    \begin{scope}[on background layer]
+      \draw[tr] (ANY) -- node[lbl, above=3pt]{T17: FAULT\\/ save $X$, all actuators OFF,\\unlock door, RLED 2\,Hz} (E);
+      \draw[tr] (E) to[out=65,in=115,looseness=5] node[lbl, above]{T18/T19: TICK$_{1s}$ [cycle in progress] / $t{-}{-}$} (E);
+      \draw[tr] (E) -- node[lbl, sloped, above=2pt, pos=0.6]{T20: CLEARED [cycle $\wedge$ $t>0$]} (P);
+      \draw[tr] (E) -- node[lbl, sloped, below=2pt, pos=0.56]{T21: CLEARED [otherwise] / restore by $b$} (I);
+    \end{scope}
+    \node[font=\scriptsize, align=left, text width=6cm, anchor=north] at (4,-2.0)
+      {RUN, PAUSE, STOP and coins are ignored in ERROR (lock-out).\\
+       ``cycle in progress'' $\Leftrightarrow X \in \{$RUNNING, PAUSED$\}$.};
+  \end{tikzpicture}}
+  \caption{State diagram -- fault handling (ERROR state)}
+  \label{fig:fsm-error}
+\end{figure}
+
+\subsection{State transition table}
+
+\begingroup
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{longtable}{L{0.8cm}L{2.75cm}L{1.9cm}L{2.1cm}L{2.6cm}L{4.15cm}}
+  \caption{Complete state transition table}\label{tab:transitions}\\
+  \toprule
+  \textbf{ID} & \textbf{Current state} & \textbf{Event} & \textbf{Guard} & \textbf{Next state} & \textbf{Action / output} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{ID} & \textbf{Current state} & \textbf{Event} & \textbf{Guard} & \textbf{Next state} & \textbf{Action / output} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endfoot
+  T01 & STANDBY & COIN($v$) & $b+v < 50$ & COLLECTING & $b \mathrel{+}= v$; RLED ON, BLED OFF \\
+  T02 & STANDBY & COIN($v$) & $b+v \geq 50$ & READY & $b \mathrel{+}= v$; RLED OFF, BLED ON \\
+  T03 & COLLECTING & COIN($v$) & $b+v < 50$ & COLLECTING & $b \mathrel{+}= v$; reset STOP counter \\
+  T04 & COLLECTING & COIN($v$) & $b+v \geq 50$ & READY & $b \mathrel{+}= v$; RLED OFF, BLED ON \\
+  T05 & COLLECTING, READY & STOP & $n = 0$ & (same) & $n := 1$; $w := 1500$\,ms \\
+  T06 & COLLECTING, READY & STOP & $n = 1$ ($w > 0$) & STANDBY & \code{return_coins(b)}; $b := 0$; RLED ON, BLED OFF \\
+  T07 & READY & COIN($v$) & -- & READY & $b \mathrel{+}= v$ (surplus kept, never refunded on RUN) \\
+  T08 & READY & RUN & -- & RUNNING & $b := 0$ (no refund); $t := T$; RLED OFF; BLED 1\,Hz; lock door; motor AGITATE \\
+  T09 & RUNNING & PAUSE & -- & PAUSED & motor, valve, pump OFF; BLED ON; door stays locked; \textbf{$t$ not frozen} \\
+  T10 & RUNNING & TICK$_{1s}$ & $t > 1$ & RUNNING & $t \mathrel{-}= 1$; motor AGITATE if $t > T/6$, else SPIN + drain pump \\
+  T11 & RUNNING & TICK$_{1s}$ & $t = 1$ & STANDBY & $t := 0$; \code{on_cycle_complete()}; all OFF; unlock; RLED ON \\
+  T12 & RUNNING, PAUSED & STOP & $n = 0$ & (same) & $n := 1$; $w := 1500$\,ms; washing/timer unaffected \\
+  T13 & RUNNING, PAUSED & STOP & $n = 1$ ($w > 0$) & STANDBY & force stop: all OFF; unlock door; RLED ON, BLED OFF \\
+  T14 & PAUSED & RUN & -- & RUNNING & resume: BLED 1\,Hz; actuators by phase; $t$ \emph{not} reloaded \\
+  T15 & PAUSED & TICK$_{1s}$ & $t > 1$ & PAUSED & $t \mathrel{-}= 1$ (timer continues while paused) \\
+  T16 & PAUSED & TICK$_{1s}$ & $t = 1$ & STANDBY & $t := 0$; \code{on_cycle_complete()}; RLED ON \\
+  T17 & any $\neq$ ERROR & FAULT & -- & ERROR & save state; motor, valve, pump OFF; unlock; BLED OFF; RLED 2\,Hz \\
+  T18 & ERROR & TICK$_{1s}$ & cycle $\wedge$ $t > 1$ & ERROR & $t \mathrel{-}= 1$ \\
+  T19 & ERROR & TICK$_{1s}$ & cycle $\wedge$ $t = 1$ & ERROR & $t := 0$; cycle finished (saved state := STANDBY) \\
+  T20 & ERROR & CLEARED & cycle $\wedge$ $t > 0$ & PAUSED & flags := 0; BLED ON; user presses RUN to continue \\
+  T21 & ERROR & CLEARED & otherwise & STANDBY / COLLECTING / READY & flags := 0; state chosen from $b$ (deposit kept) \\
+  T22 & any & TICK$_{1ms}$ & $w > 0$ & (same) & $w \mathrel{-}= 1$; if $w = 0$ then $n := 0$ (single press discarded) \\
+\end{longtable}
+\endgroup
+
+\noindent \textbf{Ignored events.} Every (state, event) pair that is not in Table~\ref{tab:transitions}
+is ignored, e.g.\ RUN/PAUSE/STOP in STANDBY, RUN in COLLECTING (not enough money), PAUSE in READY,
+coins in RUNNING/PAUSED/ERROR, all buttons in ERROR. \code{wm_fsm_dispatch_event()} returns
+\code{false} for these and the outputs do not change.
+
+\subsection{Output table (Moore outputs)}
+
+\begin{table}[H]
+  \centering
+  \caption{Outputs per state}
+  \label{tab:moore}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabularx}{\linewidth}{lcccccY}
+    \toprule
+    \textbf{State} & \textbf{RLED} & \textbf{BLED} & \textbf{Motor} & \textbf{Pump} & \textbf{Door} & \textbf{Timer} \\
+    \midrule
+    STANDBY    & ON       & OFF      & OFF            & off & unlocked & idle ($t=0$) \\
+    COLLECTING & ON       & OFF      & OFF            & off & unlocked & idle \\
+    READY      & OFF      & ON       & OFF            & off & unlocked & idle \\
+    RUNNING    & OFF      & 1\,Hz    & AGITATE / SPIN & on in SPIN & locked & counting \\
+    PAUSED     & OFF      & ON       & OFF            & off & locked & \textbf{counting} \\
+    ERROR      & 2\,Hz    & OFF      & OFF            & off & unlocked & counting if a cycle was active \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Design remarks}
+
+\begin{itemize}
+  \item \textbf{Why the timer is a variable and not a state.} 1800 states would be absurd; a counter
+        with guards $t > 1$ / $t = 1$ keeps the diagram small and lets RUNNING and PAUSED share the
+        same countdown code (T10/T15), which guarantees FR-06.
+  \item \textbf{Why ERROR has priority.} The FAULT event is checked \emph{before} the state switch in
+        \code{wm_fsm_dispatch_event()}, so no state can ``forget'' to handle it.
+  \item \textbf{Why STOP needs a counter.} The double press is a small sub-machine ($n \in \{0,1\}$ plus
+        the window $w$) embedded in every state that accepts STOP. It is reset whenever the machine enters
+        STANDBY, COLLECTING, RUNNING, PAUSED or ERROR, so a first press made before RUN or PAUSE can
+        never combine with a press made after it.
+\end{itemize}

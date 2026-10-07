@@ -1,0 +1,251 @@
+% =============================================================================
+\section{Software Implementation}
+\label{sec:impl}
+% =============================================================================
+
+Only the key fragments are shown here; the full sources are listed in Appendix~\ref{app:source}.
+The code is C99, compiled with \code{-Wall -Wextra -Werror -pedantic} for both the PC and the
+Cortex-M7 (\code{arm-none-eabi-gcc -mcpu=cortex-m7 -Os}). The firmware uses no HAL library, no
+\code{printf} and no heap: 9.3\,KB of flash in total.
+
+\subsection{States, events and context}
+
+\begin{lstlisting}[caption={State and event enumerations (\code{washing_machine_fsm.h})}]
+typedef enum {
+    WM_STATE_STANDBY = 0,   /* RLED=ON,  BLED=OFF                     */
+    WM_STATE_COLLECTING,    /* 0 < deposit < 50c; RLED=ON, BLED=OFF   */
+    WM_STATE_READY,         /* deposit >= 50c;    RLED=OFF, BLED=ON   */
+    WM_STATE_RUNNING,       /* BLED blink 1 Hz, timer ticking         */
+    WM_STATE_PAUSED,        /* actuators stopped, timer STILL ticking */
+    WM_STATE_ERROR          /* RLED blink 2 Hz, actuators stopped     */
+} wm_state_t;
+
+typedef enum {
+    WM_EVT_NONE = 0, WM_EVT_COIN_10, WM_EVT_COIN_20, WM_EVT_COIN_50,
+    WM_EVT_BTN_RUN, WM_EVT_BTN_PAUSE, WM_EVT_BTN_STOP,
+    WM_EVT_TIMER_TICK_1S, WM_EVT_TIMER_TICK_1MS,
+    WM_EVT_FAULT_OCCURRED, WM_EVT_FAULT_CLEARED
+} wm_event_t;
+
+typedef struct {
+    wm_state_t state;
+    uint32_t coin_balance_cents;      /* b */
+    uint32_t remaining_cycle_sec;     /* t */
+    uint32_t stop_press_count;        /* n */
+    uint32_t stop_window_timer_ms;    /* w */
+    uint32_t active_error_flags;
+    hal_output_callbacks_t callbacks;
+    uint32_t cycle_duration_setting;  /* T = 1800 s */
+    wm_state_t state_before_error;
+} wm_context_t;
+\end{lstlisting}
+
+\noindent All the data of the machine live in one \code{wm_context_t}; there are no global variables in
+the FSM, so several independent machines could run side by side (the tests create a fresh one for each
+case).
+
+\subsection{Main FSM: event dispatcher}
+
+The FSM is a \code{switch} on the current state with a nested \code{switch} on the event. Each
+transition calls an \code{enter_xxx()} function that sets the new state and performs the entry
+actions (Moore outputs), so the LED rules are written once per state and cannot be forgotten on one of
+the incoming transitions.
+
+\begin{lstlisting}[caption={Event dispatcher (abridged, \code{washing_machine_fsm.c})}]
+bool wm_fsm_dispatch_event(wm_context_t *ctx, wm_event_t event) {
+    if (!ctx) return false;
+
+    /* Global emergency transition: has priority over every state (T17) */
+    if (event == WM_EVT_FAULT_OCCURRED) {
+        if (ctx->active_error_flags == WM_FAULT_NONE)
+            ctx->active_error_flags = WM_FAULT_DOOR_OPEN;
+        if (ctx->state != WM_STATE_ERROR) { enter_error(ctx); return true; }
+        return false;
+    }
+    if (event == WM_EVT_TIMER_TICK_1MS) { wm_fsm_tick_1ms(ctx); return true; }
+
+    switch (ctx->state) {
+    case WM_STATE_READY:
+        switch (event) {
+        case WM_EVT_COIN_10:  return handle_coin_deposit(ctx, 10);
+        case WM_EVT_COIN_20:  return handle_coin_deposit(ctx, 20);
+        case WM_EVT_COIN_50:  return handle_coin_deposit(ctx, 50);
+        case WM_EVT_BTN_RUN:  enter_running(ctx, false); return true;   /* T08 */
+        case WM_EVT_BTN_STOP: return handle_stop_button(ctx);
+        default:              return false;                             /* ignored */
+        }
+    case WM_STATE_RUNNING:
+        switch (event) {
+        case WM_EVT_BTN_PAUSE:     enter_paused(ctx); return true;      /* T09 */
+        case WM_EVT_BTN_STOP:      return handle_stop_button(ctx);
+        case WM_EVT_TIMER_TICK_1S: return handle_1s_timer_tick(ctx);    /* T10/T11 */
+        default:                   return false;
+        }
+    case WM_STATE_PAUSED:
+        switch (event) {
+        case WM_EVT_BTN_RUN:       enter_running(ctx, true); return true; /* T14 resume */
+        case WM_EVT_BTN_STOP:      return handle_stop_button(ctx);
+        case WM_EVT_TIMER_TICK_1S: return handle_1s_timer_tick(ctx);    /* T15: timer continues */
+        default:                   return false;
+        }
+    /* ... STANDBY, COLLECTING, ERROR handled the same way ... */
+    default:
+        return false;
+    }
+}
+\end{lstlisting}
+
+\subsection{Coin handling and RUN (no refund)}
+
+\begin{lstlisting}[caption={Coin accumulation and start of the cycle}]
+static bool handle_coin_deposit(wm_context_t *ctx, uint32_t amount) {
+    if (ctx->state == WM_STATE_STANDBY || ctx->state == WM_STATE_COLLECTING) {
+        if (ctx->coin_balance_cents <= (UINT32_MAX - amount))   /* overflow guard */
+            ctx->coin_balance_cents += amount;
+        if (ctx->coin_balance_cents >= WM_COIN_THRESHOLD_CENTS)
+            enter_ready(ctx);                  /* T02/T04: RLED OFF, BLED ON */
+        else
+            enter_collecting(ctx);             /* T01/T03 */
+        return true;
+    } else if (ctx->state == WM_STATE_READY) {
+        if (ctx->coin_balance_cents <= (UINT32_MAX - amount))
+            ctx->coin_balance_cents += amount; /* T07: surplus accepted */
+        return true;
+    }
+    return false;                              /* rejected in RUNNING/PAUSED/ERROR */
+}
+
+static void enter_running(wm_context_t *ctx, bool is_resuming) {
+    ctx->state = WM_STATE_RUNNING;
+    ctx->stop_press_count = 0;
+    ctx->stop_window_timer_ms = 0;
+    if (!is_resuming) {
+        ctx->coin_balance_cents = 0;           /* clear money, no refund (FR-03) */
+        ctx->remaining_cycle_sec = ctx->cycle_duration_setting;   /* 1800 s */
+    }
+    CALL_HAL(&ctx->callbacks, set_rled, HAL_LED_OFF);
+    CALL_HAL(&ctx->callbacks, set_bled, HAL_LED_BLINK_1HZ);
+    update_running_actuators(ctx);             /* lock door, AGITATE or SPIN */
+}
+\end{lstlisting}
+
+\subsection{STOP handling}
+
+\begin{lstlisting}[caption={Double-press STOP}]
+static bool handle_stop_button(wm_context_t *ctx) {
+    if (ctx->state == WM_STATE_STANDBY) return false;
+    if (ctx->stop_press_count == 0) {          /* T05/T12: first press */
+        ctx->stop_press_count = 1;
+        ctx->stop_window_timer_ms = WM_DOUBLE_PRESS_WINDOW_MS;   /* 1500 ms */
+        return true;
+    }
+    /* T06/T13: second press inside the window -> force stop */
+    ctx->stop_press_count = 0;
+    ctx->stop_window_timer_ms = 0;
+    if ((ctx->state == WM_STATE_READY || ctx->state == WM_STATE_COLLECTING) &&
+        ctx->coin_balance_cents > 0)
+        CALL_HAL(&ctx->callbacks, return_coins, ctx->coin_balance_cents);
+    ctx->coin_balance_cents = 0;
+    enter_standby(ctx);                        /* all actuators OFF, RLED ON */
+    return true;
+}
+
+void wm_fsm_tick_1ms(wm_context_t *ctx) {      /* T22 */
+    if (ctx->stop_window_timer_ms > 0) {
+        ctx->stop_window_timer_ms--;
+        if (ctx->stop_window_timer_ms == 0)
+            ctx->stop_press_count = 0;         /* window expired: forget 1st press */
+    }
+}
+\end{lstlisting}
+
+\subsection{Timer update}
+
+\begin{lstlisting}[caption={1-second tick, shared by RUNNING and PAUSED}]
+static bool handle_1s_timer_tick(wm_context_t *ctx) {
+    if (ctx->remaining_cycle_sec > 1) {
+        ctx->remaining_cycle_sec--;                       /* T10 / T15 */
+        if (ctx->state == WM_STATE_RUNNING)
+            update_running_actuators(ctx);                /* AGITATE -> SPIN at T/6 */
+        return true;
+    } else if (ctx->remaining_cycle_sec == 1) {
+        ctx->remaining_cycle_sec = 0;                     /* T11 / T16 */
+        CALL_HAL_VOID(&ctx->callbacks, on_cycle_complete);
+        enter_standby(ctx);
+        return true;
+    }
+    return false;
+}
+\end{lstlisting}
+
+\subsection{LED update}
+
+\begin{lstlisting}[caption={Non-blocking blinker (\code{hal_led_blinker.c})}]
+void hal_led_blinker_tick_ms(hal_led_blinker_t *b, uint32_t delta_ms) {
+    if (!b || b->half_period_ms == 0U) return;          /* OFF or ON: nothing to do */
+    if (delta_ms > (UINT32_MAX - b->phase_timer_ms))     /* overflow guard */
+        delta_ms %= (2U * b->half_period_ms);
+    b->phase_timer_ms += delta_ms;
+    if (b->phase_timer_ms >= b->half_period_ms) {
+        uint32_t toggles = b->phase_timer_ms / b->half_period_ms;
+        if ((toggles & 1U) != 0U)
+            b->output_level = !b->output_level;          /* 500 ms (1 Hz) or 250 ms (2 Hz) */
+        b->phase_timer_ms %= b->half_period_ms;
+    }
+}
+\end{lstlisting}
+
+\subsection{Debounce logic}
+
+\begin{lstlisting}[caption={Integrating debouncer (\code{hal_button_engine.c})}]
+void hal_button_update(hal_button_t *btn, bool raw_pin_high, uint32_t delta_ms) {
+    bool pressed = btn->active_low ? !raw_pin_high : raw_pin_high;
+    if (pressed != btn->debounced_state) {
+        btn->debounce_counter += delta_ms;               /* level differs: count */
+        if (btn->debounce_counter >= HAL_DEBOUNCE_DEFAULT_MS) {   /* 30 ms stable */
+            btn->debounced_state = pressed;
+            btn->debounce_counter = 0;
+            if (pressed) btn->pressed_event = true;      /* latched edge */
+            else         btn->released_event = true;
+        }
+    } else {
+        btn->debounce_counter = 0;                       /* bounce: restart */
+    }
+}
+\end{lstlisting}
+
+\noindent Any glitch shorter than 30\,ms resets the counter, so a bouncing contact produces exactly one
+edge. The edge is latched and consumed once by \code{hal_button_was_pressed()}.
+
+\subsection{Main loop on the STM32}
+
+\begin{lstlisting}[caption={Super-loop and 1 ms housekeeping (\code{main_h750.c}, abridged)}]
+void SysTick_Handler(void) { g_millis++; }           /* the only ISR work */
+
+static void process_1ms(uint32_t *sec_acc_ms) {
+    wm_fsm_tick_1ms(&g_fsm);                          /* STOP window       */
+    hal_led_blinker_tick_ms(&g_rled, 1U);             /* LED waveforms     */
+    hal_led_blinker_tick_ms(&g_bled, 1U);
+    hal_button_update(&g_key, board_key_pressed(), 1U);              /* debounce */
+    hal_gesture_t g = hal_gesture_update(&g_gesture, hal_button_is_pressed(&g_key), 1U);
+    if (g != HAL_GESTURE_NONE) k1_event(g);           /* gesture -> FSM event */
+    /* ... external K0 / STOP buttons ... */
+    if (++(*sec_acc_ms) >= 1000U) {                   /* 1 s tick */
+        *sec_acc_ms = 0U;
+        wm_fsm_tick_1s(&g_fsm);
+    }
+}
+
+int main(void) {
+    board_init();                                     /* clocks, GPIO, SysTick 1 kHz */
+    wm_fsm_init(&g_fsm, &cbs);                        /* -> STANDBY, RLED ON */
+    lcd_init();
+    for (;;) {
+        uint32_t now = board_millis();
+        while (processed != now) { processed++; process_1ms(&sec_acc_ms); }
+        /* UART keys, status log, PE3 LED = RLED | BLED */
+        build_view(&view);
+        if (!ui_view_equal(&view, &shown)) { ui_render(&view); lcd_flush(); shown = view; }
+    }
+}
+\end{lstlisting}

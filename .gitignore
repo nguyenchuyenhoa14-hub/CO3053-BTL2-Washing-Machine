@@ -23,3 +23,13 @@ test_gesture_runner
 
 # Local clone of the WeAct board SDK (721 MB, reference only)
 MiniSTM32H7xx/
+
+# LaTeX report build files
+report/*.fdb_latexmk
+report/*.fls
+report/*.bbl
+report/*.blg
+report/*.lof
+report/*.lot
+report/*.out
+report/*.synctex.gz

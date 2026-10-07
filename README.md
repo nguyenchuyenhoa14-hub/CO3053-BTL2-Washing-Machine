@@ -5,6 +5,10 @@
 **Institution:** Ho Chi Minh City University of Technology (HCMUT)  
 **Academic Year:** HK261  
 
+> [!IMPORTANT]
+> ## ▶️ VIDEO DEMO: **https://youtube.com/shorts/ZFKOPDyJHqQ**
+> The control unit running on the real WeAct STM32H750 board.
+
 ---
 
 ## 1. Project Overview

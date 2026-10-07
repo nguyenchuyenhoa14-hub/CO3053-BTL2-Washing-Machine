@@ -1,0 +1,43 @@
+============================================================
+ BTL 2: Washing Machine Control Unit - Verification Suite
+ CO3053 Embedded Systems - HCMUT
+============================================================
+
+  [PASS] TC-01: Sub-threshold Deposit (10¢ + 20¢ stays in COLLECTING, RLED on)
+  [PASS] TC-02: Exact Threshold Deposit (50¢ transitions to READY)
+  [PASS] TC-03: Surplus Deposit Accumulation (Accepts 60¢, 110¢ in READY)
+  [PASS] TC-04: Execution & Zero Refund (70¢ cleared to 0¢, 30-min timer active)
+  [PASS] TC-05: Premature RUN Attempt (Ignored when balance < 50¢)
+  [PASS] TC-06: Normal Pause and Resume (Actuators safely suspended and resumed)
+  [PASS] TC-07: Persistent Timer in Pause (Timer ticked down from 1600s to 1300s while paused)
+  [PASS] TC-08: Pause Timeout Termination (Timer expiring in PAUSED resets to STANDBY)
+  [PASS] TC-09: Single STOP Rejection (Single press does not force stop)
+  [PASS] TC-10: Force Stop on Double Press (2 presses within 300ms forces termination)
+  [PASS] TC-11: Force Stop from Paused State (Double STOP terminates paused machine)
+  [PASS] TC-12: Normal 30-min Cycle Completion (1800s expires naturally to STANDBY)
+  [PASS] TC-13: Fault Interruption and Recovery (Safety shutdown & error reset)
+  [PASS] TC-14: Rapid Alternating PAUSE/RUN Toggling (Stress test on clock & motor)
+  [PASS] TC-15: Coin Rejection During Active Cycle (Coins rejected in RUNNING, PAUSED, ERROR)
+  [PASS] TC-16: Fault in STANDBY and READY States (Consistent error transition & LED signalling)
+  [PASS] TC-17: Complete Lockout During ERROR State (Buttons and coins strictly locked)
+  [PASS] TC-18: Ready State Double STOP Cancellation (User cancel before run)
+  [PASS] TC-19: Multiple Isolated Single STOPS (Spaced presses never falsely force stop)
+  [PASS] TC-20: Null Pointer and API Resilience (Zero segmentation faults, robust error handling)
+  [PASS] TC-21: Consecutive Multi-Cycle Sessions (Flawless back-to-back operations without leakage)
+  [PASS] TC-22: Boundary Double-Stop Timing (Exact 1499ms hit vs 1501ms expiration verified)
+  [PASS] TC-23: Single STOP in READY (Preserves accumulated deposit against accidental touch)
+  [PASS] TC-24: Granular Fault Diagnostics (Multi-sensor bitmask tracking and string reports)
+  [PASS] TC-25: Arithmetic Overflow Resilience (MISRA-C Rule 12.4 wrap-around defense)
+  [PASS] TC-26: Multi-Phase Wash Profile (Agitate -> Spin/Drain -> Complete verified)
+  [PASS] TC-27: Event Acceptance Query Protocol (Deterministic event filtering across all 5 states)
+  [PASS] TC-28: Cycle Sub-Phase Query & Enum Decoders (Correct phase detection throughout cycle)
+  [PASS] TC-29: Pause Across Phase Boundary (Continuous timer crosses into Spin)
+  [PASS] TC-30: MISRA-C Boundary & Corrupted Enum Resilience (100% defensive branch safety)
+  [PASS] TC-31: COLLECTING State (RLED on until the 50¢ threshold, then READY)
+  [PASS] TC-32: Cancel Returns Deposit (STOP x2 in COLLECTING/READY refunds; RUN still zero-refund)
+  [PASS] TC-33: Fault Preserves Deposit (COLLECTING/READY restored after the fault is cleared)
+  [PASS] TC-34: Fault During Cycle (timer keeps counting, cleared fault resumes in PAUSED, expiry respected)
+
+============================================================
+ ALL 34 TESTS PASSED SUCCESSFULLY! (100% Specification & Transition Coverage)
+============================================================

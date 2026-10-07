@@ -1,0 +1,72 @@
+% =============================================================================
+\section{Introduction}
+\label{sec:intro}
+% =============================================================================
+
+\subsection{Objectives of the assignment}
+
+The goal of this assignment is to design and implement the \emph{control unit} of a
+coin-operated washing machine, following the full embedded-system workflow:
+requirements $\rightarrow$ analysis $\rightarrow$ finite-state-machine (FSM) design
+$\rightarrow$ implementation on a real microcontroller $\rightarrow$ verification.
+The report is organised to answer four questions:
+
+\begin{enumerate}
+  \item \textbf{What must the system do?} (Sections~\ref{sec:requirements}--\ref{sec:analysis})
+  \item \textbf{How is it designed?} (Sections~\ref{sec:fsm}--\ref{sec:timing})
+  \item \textbf{How is it implemented?} (Sections~\ref{sec:impl}--\ref{sec:flow})
+  \item \textbf{How do we prove it works?} (Sections~\ref{sec:testplan}--\ref{sec:results})
+\end{enumerate}
+
+\subsection{The washing machine in short}
+
+The machine is a self-service, coin-operated washer such as those found in
+laundromats and dormitories. The assignment statement given in class is:
+
+\begin{quote}\small\itshape
+1.~The machine can be controlled by three buttons (STOP, RUN, PAUSE).
+2.~The machine has two LEDs including Red LED (RLED) and Blue one (BLED):
+RLED is on when the machine is on standby (i.e.\ it is available to serve);
+RLED is blinking if the machine has errors; BLED is on when the machine is ready to execute;
+BLED is blinking when the machine is running (do washing).
+3.~The washing machine is only able to execute once at least 50 cents is added.
+4.~The machine only accepts 10-cent, 20-cent, 50-cent coins.
+5.~When there is enough money (BLED is on), the machine will execute if the RUN button is pressed.
+Then, a 30-mins timer will be activated and the money will be cleared without returning the
+redundancies (if any).
+6.~When the machine is running (BLED is blinking), it will be paused as the PAUSE button is pressed
+but the timer is still counting down. The machine will re-execute when the RUN button is pressed again.
+7.~The executing machine will be automatically terminated after 30 minutes (washing cycle) or when
+the STOP button is pressed twice (force to stop).
+\end{quote}
+
+\subsection{Main functions}
+
+\begin{itemize}
+  \item \textbf{Coin acceptance}: 10\cent, 20\cent{} and 50\cent{} coins are accumulated;
+        at least 50\cent{} is required to run; surplus money is never refunded on RUN.
+  \item \textbf{RUN / PAUSE / STOP control}: RUN starts or resumes washing, PAUSE suspends
+        washing while the timer keeps counting, STOP pressed twice forces the machine to stop.
+  \item \textbf{30-minute cycle timer}: a non-blocking countdown that ends the cycle automatically.
+  \item \textbf{LED indication}: two LEDs (RLED, BLED) with ON / OFF / 1\,Hz / 2\,Hz patterns
+        that encode the current state of the machine.
+\end{itemize}
+
+\subsection{Scope of the work}
+
+The work focuses on the \textbf{control logic}. Concretely, the deliverables are:
+
+\begin{itemize}
+  \item a portable, hardware-independent FSM written in C99 (\code{src/fsm/});
+  \item non-blocking input/output engines: debounce, coin-pulse decoder, LED blinker,
+        single-button gesture decoder (\code{src/hal/}, \code{src/app/});
+  \item a bare-metal firmware for the \textbf{WeAct Studio STM32H750VBT6} core board with a
+        0.96$''$ ST7735 LCD dashboard and a UART console (\code{board/weact_h750/});
+  \item an automated host test suite (94 test cases in five suites) and an interactive simulator.
+\end{itemize}
+
+\noindent\textbf{Out of scope.} The real drum motor, water valve, drain pump, door lock and coin
+acceptor are \emph{not} driven by real power electronics. Their commands are produced by the FSM
+through a callback interface and are shown as indicators on the LCD and in the UART log
+(Section~\ref{sec:hardware}). The hardware-abstraction layer is designed so that real relays
+or a real pulse-output coin acceptor can be connected later without touching the FSM.

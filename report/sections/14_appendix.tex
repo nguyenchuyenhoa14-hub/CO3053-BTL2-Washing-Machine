@@ -1,0 +1,89 @@
+% =============================================================================
+\section{Source code}
+\label{app:source}
+% =============================================================================
+
+The complete project is available in the team repository \cite{projectrepo}:
+\url{https://github.com/nguyenchuyenhoa14-hub/CO3053-BTL2-Washing-Machine}. Directory layout:
+
+\begin{lstlisting}[style=logstyle]
+src/include/   washing_machine_config.h, washing_machine_fsm.h, hal_interfaces.h
+src/fsm/       washing_machine_fsm.c         portable FSM (core logic)
+src/hal/       hal_button_engine.c           debounce + coin pulse decoder
+               hal_led_blinker.c             1 Hz / 2 Hz blinker + actuator interlock
+               hal_button_gesture.c          click / double / hold decoder
+src/app/       wm_single_button.c            gesture -> FSM event mapping
+               wm_two_button.c               coin staging front panel
+board/weact_h750/
+               startup_stm32h750.c, stm32h750vb_flash.ld   startup + linker script
+               board_h750.c                  clocks 400 MHz, GPIO, SysTick, USART1
+               lcd_st7735.c, gfx.c, ui_render.c, ui_text.c LCD + UART UI
+               main_h750.c                   firmware entry point (super-loop)
+tests/         test_washing_machine.c, test_hal_engines.c, test_gesture.c,
+               test_two_button.c, test_ui_text.c
+sim/           sim_interactive.c (CLI simulator), wokwi/ (web simulation)
+\end{lstlisting}
+
+\noindent Build and flash: \code{make test test_hal test_gesture} (PC tests), \code{make h750}
+(firmware), \code{make flash} (USB-DFU or ST-Link), \code{make preview} (LCD frames on the PC).
+
+% Main source files are included directly from the repository when the report is compiled inside it
+% (report/ next to src/). On Overleaf, upload src/ and board/ next to report/ or remove these listings.
+\newcommand{\srclisting}[2]{%
+  \IfFileExists{#1}{\lstinputlisting[caption={#2}]{#1}}{}}
+
+\subsection{FSM}
+\srclisting{../src/include/washing_machine_config.h}{\code{washing_machine_config.h}}
+\srclisting{../src/include/washing_machine_fsm.h}{\code{washing_machine_fsm.h}}
+\srclisting{../src/fsm/washing_machine_fsm.c}{\code{washing_machine_fsm.c}}
+
+\subsection{Input and output engines}
+\srclisting{../src/hal/hal_button_engine.c}{\code{hal_button_engine.c}}
+\srclisting{../src/hal/hal_led_blinker.c}{\code{hal_led_blinker.c}}
+\srclisting{../src/hal/hal_button_gesture.c}{\code{hal_button_gesture.c}}
+\srclisting{../src/app/wm_single_button.c}{\code{wm_single_button.c}}
+\srclisting{../src/app/wm_two_button.c}{\code{wm_two_button.c}}
+
+\subsection{Board firmware}
+\srclisting{../board/weact_h750/main_h750.c}{\code{main_h750.c}}
+\srclisting{../board/weact_h750/board_h750.c}{\code{board_h750.c}}
+
+% =============================================================================
+\section{Pin configuration}
+\label{app:pins}
+% =============================================================================
+
+The project does not use STM32CubeMX: peripherals are configured directly through the registers
+(\code{board_h750.c}, \code{lcd_st7735.c}) following RM0433 \cite{stm32h7rm}. The resulting
+configuration is:
+
+\begin{table}[H]
+  \centering
+  \caption{Register-level pin configuration}
+  \label{tab:pinregs}
+  \small
+  \begin{tabular}{lllll}
+    \toprule
+    \textbf{Pin} & \textbf{MODER} & \textbf{PUPDR} & \textbf{AF} & \textbf{Function} \\
+    \midrule
+    PC13 & 00 input  & 10 pull-down & -- & K1 \\
+    PA0, PA1 & 00 input & 01 pull-up & -- & external K0, STOP \\
+    PE3  & 01 output & -- & -- & status LED \\
+    PE11, PE13 & 01 output & -- & -- & LCD CS, DC \\
+    PE12, PE14 & 10 alternate & -- & AF5 & SPI4 SCK, MOSI \\
+    PE10 & 10 alternate & -- & AF1 & TIM1\_CH2N backlight PWM \\
+    PA9, PA10 & 10 alternate & PA10 pull-up & AF7 & USART1 TX, RX \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% =============================================================================
+\section{Full test logs}
+\label{app:logs}
+% =============================================================================
+
+\lstinputlisting[style=logstyle, caption={\code{make test} -- FSM suite}]{logs/test.txt}
+\lstinputlisting[style=logstyle, caption={\code{make test_hal} -- HAL engines}]{logs/test_hal.txt}
+\lstinputlisting[style=logstyle, caption={\code{make test_gesture} -- single-button gestures}]{logs/test_gesture.txt}
+\lstinputlisting[style=logstyle, caption={\code{make test_two_button} -- front panel}]{logs/test_two_button.txt}
+\lstinputlisting[style=logstyle, caption={\code{make test_ui_text} -- UART status line}]{logs/test_ui_text.txt}
