@@ -1,6 +1,8 @@
 # Local Workspace Folders & Private Data (Do NOT push to GitHub)
 .agents/
 assignment1/
+HUONG_DAN_THUYET_TRINH*.md
+HDSD_BOARD*.md
 
 # Compiled Binaries, Objects & Test Runners
 *.exe

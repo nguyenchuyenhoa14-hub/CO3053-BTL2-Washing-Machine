@@ -36,8 +36,6 @@ make test_gesture  # host unit tests for the button gestures
 Linux: install `99-weact-h750.rules` once to flash without sudo. If the image looks shifted/colour
 inverted, rebuild with `make h750 LCD_PANEL=BOE` (the 0.96" module ships with two panel types).
 
-Full Vietnamese user guide: [`HDSD_BOARD_WEACT_H750.md`](../../HDSD_BOARD_WEACT_H750.md).
-
 ## Using the single button
 | Gesture | STANDBY | READY | RUNNING | PAUSED | ERROR |
 |---|---|---|---|---|---|

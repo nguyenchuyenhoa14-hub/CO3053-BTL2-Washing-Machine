@@ -1,42 +1,43 @@
-# Hướng Dẫn Mô Phỏng Nhúng Wokwi (CO3053 - BTL 2)
+# Wokwi Embedded Simulation Guide (CO3053 - Assignment 2)
 
-Thư mục này chứa toàn bộ cấu hình và mã nguồn để chạy **Mô phỏng phần cứng nhúng trực quan 100% trên trình duyệt web (Wokwi Simulator)** hoặc qua VS Code Wokwi Extension.
-
----
-
-## 1. Thành Phần Mạch Phần Cứng (Bố Trí Trên Wokwi)
-
-1. **Khối vi điều khiển:**
-   * Bo mạch **Arduino Uno** (hoặc ESP32).
-2. **Khối hiển thị:**
-   * **Màn hình LCD 1602 I2C** (địa chỉ `0x27`, kết nối chân `A4-SDA`, `A5-SCL`).
-   * Dòng 1 hiển thị: Trạng thái máy (`STANDBY`, `READY`, `RUN`, `PAUS`) và Đồng hồ đếm lùi `MM:SS`.
-   * Dòng 2 hiển thị: Trạng thái Động cơ (`AGIT`, `SPIN`, `OFF`), Bơm xả (`PUMP: 1/0`), và Khóa cửa (`LCK: 1/0`).
-3. **Khối nút bấm điều khiển (Active-Low kèm pull-up):**
-   * Nút **RUN** (Xanh lá) - Chân `D2`.
-   * Nút **PAUSE** (Vàng) - Chân `D3`.
-   * Nút **STOP** (Đỏ) - Chân `D4` (Hỗ trợ bắt nhấp đúp $T \le 1.5\,\text{s}$).
-4. **Khối nạp tiền xu:**
-   * Nút **10¢** (Trắng) - Chân `D5`.
-   * Nút **20¢** (Trắng) - Chân `D6`.
-   * Nút **50¢** (Cam/Vàng) - Chân `D7`.
-5. **Khối cảm biến sự cố:**
-   * Công tắc gạt **DOOR FAULT** - Chân `D8` (Gạt sang trái để giả lập mở cửa lúc giặt $\rightarrow$ chuyển sang `ERROR`).
-6. **Khối đèn LED báo hiệu:**
-   * **RLED (Đỏ)** - Chân `D9` kèm điện trở 220 $\Omega$: Sáng đứng ở `STANDBY`, nhấp nháy 2.0 Hz ở `ERROR`.
-   * **BLED (Xanh dương)** - Chân `D10` kèm điện trở 220 $\Omega$: Sáng đứng ở `READY`, nhấp nháy 1.0 Hz ở `RUNNING`.
-7. **Khối chỉ thị cơ cấu chấp hành (Relays):**
-   * Đèn **MTR AGITATE** (Xanh lá) - Chân `D11` (Đảo chiều giặt).
-   * Đèn **MTR SPIN DRY** (Vàng) - Chân `D12` (Vắt cao tốc).
-   * Đèn **DRAIN PUMP** (Xanh cyan) - Chân `D13` (Bơm xả nước).
-   * Đèn **DOOR LOCK** (Trắng) - Chân `A0` (Khóa chốt an toàn).
+This directory contains the configuration and source code for the **interactive browser-based hardware simulation (Wokwi Simulator)** and VS Code Wokwi extension.
 
 ---
 
-## 2. Cách Chạy Mô Phỏng Trên Web Wokwi (1-Click)
+## 1. Hardware Circuit Components
 
-1. Truy cập [https://wokwi.com/projects/new/arduino-uno](https://wokwi.com/projects/new/arduino-uno)
-2. Thay thế nội dung tab **`diagram.json`** bằng nội dung file [`sim/wokwi/diagram.json`](./diagram.json).
-3. Thay thế nội dung tab **`sketch.ino`** bằng nội dung file [`sim/wokwi/sketch.ino`](./sketch.ino).
-4. Thêm thư viện `LiquidCrystal I2C` vào tab **Library Manager**.
-5. Bấm nút **Start Simulation (Play)** để trải nghiệm trực quan!
+1. **Microcontroller Unit:**
+   * **Arduino Uno** (ATmega328P).
+2. **Display Subsystem:**
+   * **LCD 1602 I2C Display** (address `0x27`, connected to pins `A4-SDA`, `A5-SCL`).
+   * Row 1: Machine state (`STANDBY`, `READY`, `RUN`, `PAUS`) and countdown timer `MM:SS`.
+   * Row 2: Motor state (`AGIT`, `SPIN`, `OFF`), Drain Pump (`PUMP: 1/0`), and Door Lock (`LCK: 1/0`).
+3. **Control Buttons (Active-Low with internal pull-up):**
+   * **RUN** Button (Green) - Pin `D2`.
+   * **PAUSE** Button (Yellow) - Pin `D3`.
+   * **STOP** Button (Red) - Pin `D4` (Captures double-press within $T_{\text{double}} \le 1.5\,\text{s}$).
+4. **Coin Insertion Buttons:**
+   * **10¢** Button (White) - Pin `D5`.
+   * **20¢** Button (White) - Pin `D6`.
+   * **50¢** Button (Orange) - Pin `D7`.
+5. **Fault Injection Sensor:**
+   * **DOOR FAULT** Slide Switch - Pin `D8` (Toggle to simulate opening door during washing cycle -> triggers `ERROR` state).
+6. **Indicator LEDs:**
+   * **RLED** (Red) - Pin `D9` with 220 Ohm resistor: Solid ON in `STANDBY`, blinking at 2.0 Hz in `ERROR`.
+   * **BLED** (Blue) - Pin `D10` with 220 Ohm resistor: Solid ON in `READY`, blinking at 1.0 Hz in `RUNNING`.
+7. **Actuator Indicators (Relays):**
+   * **MTR AGITATE** LED (Green) - Pin `D11` (Agitation cycle).
+   * **MTR SPIN DRY** LED (Yellow) - Pin `D12` (High-speed spinning).
+   * **DRAIN PUMP** LED (Cyan) - Pin `D13` (Drain pump active).
+   * **DOOR LOCK** LED (White) - Pin `A0` (Door latch engaged).
+
+---
+
+## 2. Launching Browser Simulation
+
+1. Open [https://wokwi.com/projects/new/arduino-uno](https://wokwi.com/projects/new/arduino-uno).
+2. Replace the **`diagram.json`** tab with [`sim/wokwi/diagram.json`](./diagram.json).
+3. Replace the **`sketch.ino`** tab with [`sim/wokwi/sketch.ino`](./sketch.ino).
+4. Add the `LiquidCrystal I2C` library in the **Library Manager** tab.
+5. Click **Start Simulation (Play)**.
+

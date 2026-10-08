@@ -192,7 +192,7 @@ mingw32-make h750
 # Flash firmware via USB DFU or ST-Link
 mingw32-make flash
 ```
-*(For detailed hardware schematics and pinouts, see [`HDSD_BOARD_WEACT_H750.md`](./HDSD_BOARD_WEACT_H750.md)).*
+*(For detailed hardware schematics and pinouts, see [`board/weact_h750/README.md`](./board/weact_h750/README.md)).*
 
 ---
 
@@ -202,8 +202,6 @@ mingw32-make flash
 .
 ├── Makefile                          # Unified build automation (test, test_hal, sim, demo, h750)
 ├── README.md                         # Primary project documentation
-├── HDSD_BOARD_WEACT_H750.md          # Hardware flashing & pinout documentation (Vietnamese)
-├── HUONG_DAN_THUYET_TRINH...md      # Presentation talking points & architecture summary
 │
 ├── src/                              # Core Embedded C Firmware
 │   ├── include/

@@ -1,16 +1,15 @@
-# Ảnh dùng trong report
+# Report Image Assets
 
-| File | Dùng ở | Nguồn |
+| File | Target Section | Source Reference |
 |---|---|---|
-| `led_standby.jpg` | §11.4 (a) | cắt từ `generated/standby_modes.jpg` |
-| `led_collecting.jpg` | §11.4 (b) | cắt từ `generated/stanby_themtien.jpg` |
-| `led_ready.jpg` | §11.4 (c) | cắt từ `generated/ready.jpg` |
-| `led_running.jpg` | §11.4 (d) | cắt từ `generated/running.jpg` |
+| `led_standby.jpg` | Section 11.4 (a) | Cropped from `generated/standby_modes.jpg` |
+| `led_collecting.jpg` | Section 11.4 (b) | Cropped from `generated/stanby_themtien.jpg` |
+| `led_ready.jpg` | Section 11.4 (c) | Cropped from `generated/ready.jpg` |
+| `led_running.jpg` | Section 11.4 (d) | Cropped from `generated/running.jpg` |
 
-Cắt lại (ImageMagick), ví dụ:
-`convert generated/ready.jpg -crop 480x720+391+430 +repage -quality 90 led_ready.jpg`
+Image cropping command (ImageMagick):
+```bash
+convert generated/ready.jpg -crop 480x720+391+430 +repage -quality 90 led_ready.jpg
+```
 
-`generated/lcd_*.png` là frame LCD do `make preview` render từ code UI của firmware (§11.5).
-
-Ảnh board, đấu dây, schematic, pin-out và screenshot terminal đã được bỏ khỏi report
-(log test đầy đủ nằm ở Phụ lục, demo trên board có ở video).
+`generated/lcd_*.png` are simulated LCD UI frames rendered by `make preview` from firmware UI display logic (Section 11.5).
