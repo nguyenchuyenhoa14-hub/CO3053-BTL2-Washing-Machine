@@ -153,7 +153,7 @@ Xây dựng bộ kiểm thử tự động độc lập [`tests/test_washing_mac
 
 Đây là các điểm mấu chốt giúp đồ án vượt trội hoàn toàn so với các bài làm thông thường:
 
-### 🌟 Điểm Đặc Biệt 1: Xử Lý Timer Trong Trạng Thái `PAUSED` Tuyệt Đối Chính Xác
+### Điểm Đặc Biệt 1: Xử Lý Timer Trong Trạng Thái `PAUSED` Tuyệt Đối Chính Xác
 * **Vấn đề thông thường**: Các bạn sinh viên thường theo quán tính lập trình "Pause là dừng toàn bộ đồng hồ".
 * **Đặc tả của Thầy**: *"When the machine is running, it will be paused as the PAUSE button is pressed **but the timer is still counting down**."*
 * **Hiện thực của nhóm**:
@@ -162,7 +162,7 @@ Xây dựng bộ kiểm thử tự động độc lập [`tests/test_washing_mac
 
 ---
 
-### 🌟 Điểm Đặc Biệt 2: Thuật Toán Double-Press STOP Với Cửa Sổ Trượt 1500ms
+### Điểm Đặc Biệt 2: Thuật Toán Double-Press STOP Với Cửa Sổ Trượt 1500ms
 * **Mục đích**: Chống bấm nhầm (Accidental Touch). Bấm 1 lần vô tình quẹt tay vào nút `STOP` tuyệt đối không làm dừng máy.
 * **Cơ chế hoạt động**:
   - Khi bấm `STOP` lần 1: Máy ghi nhận `stop_press_count = 1` và nạp bộ đếm lùi `stop_window_timer_ms = 1500`. Chu trình giặt vẫn tiếp tục chạy bình thường!
@@ -172,7 +172,7 @@ Xây dựng bộ kiểm thử tự động độc lập [`tests/test_washing_mac
 
 ---
 
-### 🌟 Điểm Đặc Biệt 3: Quy Tắc "Nuốt Tiền Không Hoàn Lại" & Chống Tràn Số Học
+### Điểm Đặc Biệt 3: Quy Tắc "Nuốt Tiền Không Hoàn Lại" & Chống Tràn Số Học
 * **Đặc tả**: *"without returning the redundancies (if any)"*.
 * **Hiện thực**:
   - Khi bấm `RUN`: Toàn bộ `coin_balance_cents` được gán ngay về `0`. Dù người dùng bỏ 50¢, 70¢ hay 100¢ thì máy chỉ chạy 1 chu trình 30 phút và không thối lại tiền dư.
@@ -180,7 +180,7 @@ Xây dựng bộ kiểm thử tự động độc lập [`tests/test_washing_mac
 
 ---
 
-### 🌟 Điểm Đặc Biệt 4: Hồ Sơ Chuyển Pha Động Cơ Đa Tầng (Multi-Phase Wash Profile)
+### Điểm Đặc Biệt 4: Hồ Sơ Chuyển Pha Động Cơ Đa Tầng (Multi-Phase Wash Profile)
 Đa số các bài làm chỉ xem trạng thái Running là bật 1 ngõ ra đơn giản. Nhóm đã xây dựng hồ sơ chu trình giặt thực tế:
 - **Pha 1 (Chiếm 5/6 thời gian đầu - 25 phút)**: Chế độ giặt đảo chiều chậm (`HAL_MOTOR_AGITATE`), van xả đóng để giữ nước và xà phòng.
 - **Pha 2 (Chiếm 1/6 thời gian cuối - 5 phút)**: Kích hoạt bơm xả nước thải (`HAL_DRAIN_PUMP_ON`) và tăng tốc động cơ lên chế độ vắt ly tâm tốc độ cao (`HAL_MOTOR_SPIN`).
@@ -188,7 +188,7 @@ Xây dựng bộ kiểm thử tự động độc lập [`tests/test_washing_mac
 
 ---
 
-### 🌟 Điểm Đặc Biệt 5: Tuân Thủ Chuẩn Lập Trình Nhúng MISRA-C:2012
+### Điểm Đặc Biệt 5: Tuân Thủ Chuẩn Lập Trình Nhúng MISRA-C:2012
 Mã nguồn được viết theo phong cách chuẩn mực hàng không/ô tô (Safety-Critical Embedded):
 1. **Rule 2.1**: Không có code chết / code không bao giờ chạm tới (Unreachable code).
 2. **Rule 8.7 / 8.9**: Biến và hàm nội bộ được khai báo `static` để giới hạn phạm vi đóng gói (Encapsulation).
@@ -217,27 +217,27 @@ Mã nguồn được viết theo phong cách chuẩn mực hàng không/ô tô (
 
 ### 4.2. Bộ 6 Câu Hỏi Phản Biện Hóc Búa Nhất & Cách Trả Lời Ăn Điểm Tuyệt Đối
 
-#### ❓ Câu Hỏi 1: "Tại sao ở trạng thái PAUSED, các em lại cho BLED sáng đứng (Solid ON) giống hệt như trạng thái READY? Có gây nhầm lẫn không?"
+#### Câu Hỏi 1: "Tại sao ở trạng thái PAUSED, các em lại cho BLED sáng đứng (Solid ON) giống hệt như trạng thái READY? Có gây nhầm lẫn không?"
 * **Trả lời chuẩn**:
   *"Thưa Thầy, trong slide đề bài, Thầy chỉ định nghĩa đúng 4 trạng thái hiển thị của 2 LED: RLED ON (Standby), RLED Blink (Error), BLED ON (Ready), và BLED Blink (Running). Khi máy ở trạng thái PAUSED, động cơ đã dừng giặt nên BLED **không được nhấp nháy** (vì BLED nhấp nháy nghĩa là máy đang chạy giặt). Đồng thời máy không có lỗi và chưa hoàn tất chu trình nên RLED không được bật. Đề bài nêu rõ: 'The machine will re-execute when the RUN button is pressed again' - nghĩa là máy đang ở tư thế sẵn sàng chạy tiếp khi bấm RUN, hoàn toàn khớp với định nghĩa 'ready to execute'. Do đó, việc bật BLED sáng đứng là phương án tối ưu và tuân thủ 100% đặc tả của Thầy mà không tự ý chế thêm trạng thái LED làm sai lệch đề. Ngoài ra ngoài đời thực, người dùng không thể nhầm lẫn vì ở PAUSED nắp máy vẫn bị khóa chặt và đồng hồ đang đếm lùi, khác hoàn toàn với READY."*
 
-#### ❓ Câu Hỏi 2: "Tại sao người dùng bấm STOP 2 lần ở trạng thái READY thì các em lại hủy phiên và xóa luôn tiền của họ?"
+#### Câu Hỏi 2: "Tại sao người dùng bấm STOP 2 lần ở trạng thái READY thì các em lại hủy phiên và xóa luôn tiền của họ?"
 * **Trả lời chuẩn**:
   *"Thưa Thầy, ở trạng thái READY, nếu người dùng bấm STOP 1 lần, hệ thống sẽ bỏ qua (`TC-23`) để bảo vệ tiền nạp khỏi các cú chạm vô tình. Tuy nhiên, nếu người dùng cố ý bấm STOP 2 lần liên tiếp, hệ thống hiểu rằng người dùng muốn hủy phiên (Session Abort). Về mặt phần cứng, máy giặt công cộng chỉ có khe nuốt tiền rơi vào két sắt, không có mô tơ nhả tiền thối (đúng như đề bài ghi 'without returning redundancies'). Nếu không cho phép Double-STOP để đưa máy về STANDBY, hệ thống sẽ bị treo vĩnh viễn ở trạng thái READY khi người dùng bỏ đi, khiến người sau không thể sử dụng. Do đó, việc hủy phiên và reset tiền về 0 là giải pháp an toàn và thực tế nhất."*
 
-#### ❓ Câu Hỏi 3: "Hệ thống của các em xử lý thời gian thực như thế nào? Có dùng hàm delay() trong vòng lặp không?"
+#### Câu Hỏi 3: "Hệ thống của các em xử lý thời gian thực như thế nào? Có dùng hàm delay() trong vòng lặp không?"
 * **Trả lời chuẩn**:
   *"Dạ thưa Thầy, tuyệt đối 100% không sử dụng bất kỳ hàm `delay()` chặn nào trong toàn bộ mã nguồn. Hệ thống vận hành theo mô hình Hướng sự kiện (Event-Driven) kết hợp bộ nhịp kép: Ngắt SysTick tạo nhịp 1ms phục vụ việc khử rung phím 30ms và đếm cửa sổ double-click 1500ms; nhịp 1s điều khiển đồng hồ chu trình 30 phút. Nhờ kiến trúc phi khóa, CPU luôn rảnh rỗi để phản hồi ngay lập tức với các tín hiệu an toàn như mở nắp đột ngột hoặc nút dừng khẩn cấp."*
 
-#### ❓ Câu Hỏi 4: "Nếu máy đang ở trạng thái PAUSED mà người dùng bỏ đi luôn suốt 30 phút thì sao?"
+#### Câu Hỏi 4: "Nếu máy đang ở trạng thái PAUSED mà người dùng bỏ đi luôn suốt 30 phút thì sao?"
 * **Trả lời chuẩn**:
   *"Dạ thưa Thầy, đây là điểm đặc biệt mà nhóm đã xử lý trong test case `TC-08`. Vì đồng hồ 30 phút vẫn tiếp tục đếm lùi trong lúc PAUSED, nên khi hết 1800 giây, bộ đếm chạm mốc 0, FSM sẽ phát sự kiện kết thúc chu trình, tự động giải phóng cơ cấu chấp hành, mở khóa nắp máy giặt và chuyển trạng thái về `STANDBY` (RLED sáng). Điều này giúp tiệm giặt ủi giải phóng máy cho khách hàng tiếp theo, chống việc chiếm dụng máy."*
 
-#### ❓ Câu Hỏi 5: "Làm thế nào các em đảm bảo mã nguồn đạt chuẩn tin cậy cao MISRA-C?"
+#### Câu Hỏi 5: "Làm thế nào các em đảm bảo mã nguồn đạt chuẩn tin cậy cao MISRA-C?"
 * **Trả lời chuẩn**:
   *"Dạ thưa Thầy, nhóm tuân thủ triệt để các quy tắc: Thứ nhất, không dùng cấp phát động (`malloc`), toàn bộ FSM Context nằm tĩnh trong stack/data memory. Thứ hai, không sử dụng đệ quy để chống tràn stack. Thứ ba, 100% con trỏ truyền vào hàm đều được guard kiểm tra NULL (`TC-20`). Thứ tư, kiểm tra an toàn số học để ngăn chặn tràn số nguyên khi nạp tiền (`TC-25`). Và thứ năm, loại bỏ toàn bộ code không chạm tới (Unreachable code) theo MISRA Rule 2.1."*
 
-#### ❓ Câu Hỏi 6: "Các em đã kiểm chứng mã nguồn của mình trên phần cứng như thế nào?"
+#### Câu Hỏi 6: "Các em đã kiểm chứng mã nguồn của mình trên phần cứng như thế nào?"
 * **Trả lời chuẩn**:
   *"Dạ thưa Thầy, nhóm kiểm chứng qua 3 cấp độ:
   1. Cấp độ logic: Chạy bộ 30 Unit Tests tự động (`mingw32-make test`) bao phủ 100% ma trận chuyển trạng thái.

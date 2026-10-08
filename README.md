@@ -1,31 +1,26 @@
-# CO3053 Embedded Systems — Assignment 2 (BTL 2)
-# Coin-Operated Washing Machine Control Unit
+# CO3053 Embedded Systems — Assignment 2
+# Control Unit of a Coin-Operated Washing Machine
 
-[![Build & Verification](https://img.shields.io/badge/Verification-34%2F34%20PASS-brightgreen.svg)]()
-[![Code Coverage](https://img.shields.io/badge/Coverage-100%25%20Branch%20%7C%20MC%2FDC-blue.svg)]()
-[![Standards](https://img.shields.io/badge/Standards-MISRA--C%20%7C%20ISO%2026262%20ASIL--D-orange.svg)]()
-[![Platform](https://img.shields.io/badge/Hardware-STM32H750VBT6%20ARM%20Cortex--M7-red.svg)]()
-[![Report](https://img.shields.io/badge/Report-91%20Pages%20PDF-purple.svg)](./report/HK261_CO3053_CCAS2_2353122_2352844_2352849.pdf)
+**Ho Chi Minh City University of Technology (HCMUT) — VNU-HCM**  
+**Faculty of Computer Science and Engineering**  
+**Course:** CO3053 — Embedded Systems (*Hệ thống nhúng*) | **Academic Year:** HK261  
+**Instructor:** Assoc. Prof. Phạm Hoàng Anh (`anhpham@hcmut.edu.vn`)  
 
-> **Ho Chi Minh City University of Technology (HCMUT) — VNU-HCM**  
-> **Faculty of Computer Science and Engineering**  
-> **Course:** CO3053 — Embedded Systems (*Hệ thống nhúng*) | **Academic Year:** HK261  
-> **Instructor:** Assoc. Prof. Phạm Hoàng Anh (`anhpham@hcmut.edu.vn`)  
-> **Authors:**
-> - **Nguyễn Quốc Thắng** — MSSV: `2353122`
-> - **Võ Hoàng Nguyên** — MSSV: `2352844`
-> - **Ngô Nguyễn Thành Nhân** — MSSV: `2352849`
+**Authors:**
+- **Nguyễn Quốc Thắng** — Student ID: `2353122`
+- **Võ Hoàng Nguyên** — Student ID: `2352844`
+- **Ngô Nguyễn Thành Nhân** — Student ID: `2352849`
 
 ---
 
-## 🌟 Quick Links & Key Deliverables
+## Deliverables and Quick Access
 
-| Deliverable | Description | Access Link |
+| Deliverable | Description / Platform | Direct Access |
 | :--- | :--- | :--- |
-| 📄 **Engineering Report** | Full 91-page formal design & verification report (IEEE/ACM academic style) | [**HK261_CO3053_CCAS2_2353122_2352844_2352849.pdf**](./report/HK261_CO3053_CCAS2_2353122_2352844_2352849.pdf) |
-| 🎬 **In-System Video Demo** | Live physical hardware execution on WeAct STM32H750VBT6 board | [**YouTube Shorts Demonstration**](https://youtube.com/shorts/ZFKOPDyJHqQ) |
-| 🌐 **Interactive Web Sim** | Cloud-based simulation on Wokwi with Arduino Uno, LCD1602, and 4 relays | [**Launch Wokwi Simulation**](https://wokwi.com/projects/new/arduino-uno) (See [`sim/wokwi/`](./sim/wokwi/)) |
-| 🖥️ **Interactive CLI Simulator** | Native terminal simulator with live ASCII dashboard and fast-forward timing | Run `mingw32-make sim` then `./sim_wm.exe` |
+| **Formal Engineering Report** | Full 91-page formal design and verification report (IEEE/ACM standard) | [**HK261_CO3053_CCAS2_2353122_2352844_2352849.pdf**](./report/HK261_CO3053_CCAS2_2353122_2352844_2352849.pdf) |
+| **Physical In-System Video** | Real hardware execution on WeAct STM32H750VBT6 development board | [**YouTube Demonstration**](https://youtube.com/shorts/ZFKOPDyJHqQ) |
+| **Interactive Web Simulation** | Cloud-based simulation on Wokwi (Arduino Uno, LCD1602, 4 Relays) | [**Launch Wokwi Simulation**](https://wokwi.com/projects/new/arduino-uno) (See [`sim/wokwi/`](./sim/wokwi/)) |
+| **Interactive CLI Simulator** | Native C99 terminal simulator with live ASCII dashboard | Run `mingw32-make sim` then `./sim_wm.exe` |
 
 ---
 
