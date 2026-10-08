@@ -126,23 +126,60 @@
 \setlist{itemsep=2pt, topsep=4pt}
 \setlength{\emergencystretch}{3em}
 
-% ---- Cover page data --------------------------------------------------------
-\coursename{Embedded Systems (CO3053)}
-\reporttype{Assignment 2 Report}
-\title{Coin-Operated Washing Machine Control Unit on the WeAct STM32H750}
-\advisor{Assoc. Prof. Phạm Hoàng Anh}
-\stuname{%
-  \begin{tabular}[t]{ll}
-    Võ Hoàng Nguyên         & 2352844 \\
-    Nguyễn Quốc Thắng       & 2353122 \\
-    Ngô Nguyễn Thành Nhân   & 2352849
-  \end{tabular}}
-\reporttime{October 2026}
-
 % =============================================================================
 \begin{document}
+% ---------------- TITLE PAGE (Assignment 1 Benchmark) ----------------
+\newgeometry{margin=2.5cm, top=2.5cm, bottom=2.5cm, noheadfoot}
+\begin{titlepage}
+\setstretch{1.1}
+\begin{tikzpicture}[remember picture, overlay]
+  % Outer Border
+  \draw[line width = 2.5pt, color=blue!75!black] 
+    ($(current page.north west) + (0.5in,-0.5in)$) 
+    rectangle 
+    ($(current page.south east) + (-0.5in,0.5in)$);
+  % Inner Border
+  \draw[line width = 0.8pt, color=blue!75!black] 
+    ($(current page.north west) + (0.55in,-0.55in)$) 
+    rectangle 
+    ($(current page.south east) + (-0.55in,0.55in)$);
+\end{tikzpicture}
 
-\coverpage
+\begin{center}
+  {\large \textbf{VIETNAM NATIONAL UNIVERSITY -- HO CHI MINH CITY}}\\[0.2cm]
+  {\large \textbf{HO CHI MINH CITY UNIVERSITY OF TECHNOLOGY}}\\[0.2cm]
+  {\large \textbf{FACULTY OF COMPUTER SCIENCE AND ENGINEERING}}\\[0.5cm]
+
+  \includegraphics[width=3.4cm]{hcmut-logo.png}\\[0.5cm]
+
+  {\large \textbf{CO3053 -- EMBEDDED SYSTEMS}}\\[0.25cm]
+  \rule{0.86\textwidth}{0.8pt}\\[0.35cm]
+  {\LARGE \textbf{ASSIGNMENT REPORT}}\\[0.3cm]
+  {\Large \textbf{DESIGN OF A COIN-OPERATED}}\\[0.15cm]
+  {\Large \textbf{WASHING MACHINE CONTROL UNIT}}\\[0.15cm]
+  {\normalsize \textit{System Architecture, FSM Formalization, and Hardware Verification}}\\[0.25cm]
+  \rule{0.86\textwidth}{0.8pt}\\[0.6cm]
+
+  \renewcommand{\arraystretch}{1.25}
+  \begin{tabular}{rll}
+    \textbf{Course:}     & \multicolumn{2}{l}{CO3053 -- Embedded Systems} \\[0.12cm]
+    \textbf{Topic:}      & \multicolumn{2}{l}{Coin-Operated Washing Machine Control Unit on STM32H750} \\[0.12cm]
+    \textbf{Class:}      & \multicolumn{2}{l}{CC02} \\[0.12cm]
+    \textbf{Instructor:} & \multicolumn{2}{l}{Assoc. Prof. Phạm Hoàng Anh} \\[0.12cm]
+    \textbf{Students:}   & \textbf{Nguyễn Quốc Thắng}     & \textbf{2353122} \\[0.12cm]
+                         & \textbf{Võ Hoàng Nguyên}       & \textbf{2352844} \\[0.12cm]
+                         & \textbf{Ngô Nguyễn Thành Nhân} & \textbf{2352849} \\
+  \end{tabular}
+
+  \vfill
+
+  {\large \textbf{Ho Chi Minh City, October 2026}}
+\end{center}
+\end{titlepage}
+\restoregeometry
+
+\cleardoublepage
+\pagestyle{fancy}
 
 \tableofcontents
 \clearpage
