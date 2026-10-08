@@ -147,6 +147,24 @@ The concrete technical deliverables comprise:
   \item Interactive terminal testbenches and Wokwi simulation models for browser-based visual validation (\code{sim/}).
 \end{itemize}
 
+\begin{table}[H]
+  \centering
+  \caption{Primary Project Deliverables and Verification Artifacts}
+  \label{tab:deliverables}
+  \small
+  \begin{tabularx}{\linewidth}{l p{4.2cm} X}
+    \toprule
+    \textbf{Deliverable} & \textbf{Artifact Identifier / Location} & \textbf{Technical Description} \\
+    \midrule
+    Source Code Repository & GitHub: \cite{projectrepo} & Full portable C99 codebase, HAL drivers, test suites, and build scripts \\
+    Target Firmware Image  & \code{build/h750/washer.elf} & Bare-metal ARM Cortex-M7 executable image for WeAct STM32H750 \\
+    In-System Video Demo   & YouTube: \url{https://youtube.com/shorts/ZFKOPDyJHqQ} & Physical hardware execution and behavioral validation (Section~\ref{sec:video}) \\
+    Verification Testbench & 94 Automated Tests & Core FSM, HAL engines, gesture decoders, front panel, and UI text \\
+    Formal Specification  & Technical Report (this document) & Requirements traceability, mathematical modeling, and experimental results \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
 \noindent\textbf{Out-of-Scope Demarcation:}
 High-voltage AC triacs, multi-phase inverter bridge drivers for 220\,V drum motors, solenoid inlet valves, and peristaltic
 drain pumps are not driven directly by power silicon. Instead, their actuation commands are produced via the

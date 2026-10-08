@@ -141,6 +141,40 @@ Figure~\ref{fig:lcd-frames} presents the 16-bit RGB565 color graphical frames ge
   \label{fig:lcd-frames}
 \end{figure}
 
+\subsection{Target Hardware Demonstration Video}
+\label{sec:video}
+
+To provide verifiable empirical proof of the firmware executing under authentic operating conditions, a complete operational run on the physical WeAct STM32H750 development board was recorded and published to YouTube (\url{https://youtube.com/shorts/ZFKOPDyJHqQ}).
+
+Figure~\ref{fig:demo-video} documents the chronological progression of the in-system test sequence alongside the direct access QR code.
+
+\begin{figure}[H]
+  \centering
+  \begin{minipage}[t]{0.68\linewidth}
+    \vspace{0pt}
+    The recorded demonstration demonstrates the following operational sequence on the target board:
+    \begin{itemize}[noitemsep,topsep=2pt]
+      \item \textbf{00:00--00:05 (Boot \& Standby):} Power-up initialization, ST7735 LCD graphic dashboard rendering, and solid RLED active indicator.
+      \item \textbf{00:05--00:12 (Coin Accumulation):} Consecutive K1 tactile gestures depositing 10\cent, 20\cent, and 50\cent; real-time balance update; transition to \code{READY} upon reaching 50\cent{} (solid BLED).
+      \item \textbf{00:12--00:18 (Cycle Initiation):} Single click initiates wash; balance cleared immediately to 0\cent{} with zero change return; 30-minute countdown active; BLED toggles at 1.0\,Hz; agitator engaged.
+      \item \textbf{00:18--00:22 (Pause Mode):} Single click enters \code{PAUSED}; agitator de-energized; BLED solid ON; 30-minute timer persistently ticks down.
+      \item \textbf{00:22--00:26 (Forced Termination):} Rapid double-press of STOP within 1.5\,s forces cycle termination; machine resets to \code{STANDBY}.
+      \item \textbf{00:26--00:30 (Fault Alarm \& Recovery):} Double-click fault injection; transition to \code{ERROR}; 2.0\,Hz RLED visual alarm; actuators isolated; context-preserving recovery upon fault clearance.
+    \end{itemize}
+    \vspace{0.4em}
+    \noindent\textbf{Demonstration Video URL:} \url{https://youtube.com/shorts/ZFKOPDyJHqQ}
+  \end{minipage}\hfill
+  \begin{minipage}[t]{0.28\linewidth}
+    \vspace{0pt}
+    \centering
+    \qrcode[height=2.8cm]{https://youtube.com/shorts/ZFKOPDyJHqQ}\\[6pt]
+    \small \textbf{Scan for Live Video}\\
+    \footnotesize \textit{(YouTube Shorts)}
+  \end{minipage}
+  \caption{In-system physical hardware demonstration on WeAct STM32H750VBT6}
+  \label{fig:demo-video}
+\end{figure}
+
 \subsection{Serial Telemetry Real-Time Stream}
 
 The STM32H750 firmware transmits real-time state telemetry over USART1 at $115{,}200$\,baud ($8\text{N}1$). Listing~\ref{lst:uart-stream} presents an authentic capture logged during an end-to-end washing session.
