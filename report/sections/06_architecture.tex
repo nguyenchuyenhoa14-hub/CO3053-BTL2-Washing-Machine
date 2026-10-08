@@ -30,36 +30,41 @@ Figure~\ref{fig:arch} illustrates the four-tier architectural hierarchy:
   \centering
   \resizebox{0.92\linewidth}{!}{%
   \begin{tikzpicture}[
-      m/.style={draw, thick, rounded corners, align=center, font=\small, minimum width=3.3cm, minimum height=1.05cm, fill=white},
+      m/.style={draw, thick, rounded corners, align=center, font=\small, minimum width=3.8cm, minimum height=1.1cm, fill=white},
       a/.style={-{Stealth[length=2.4mm]}, thick},
-      layer/.style={draw=gray!60, dashed, rounded corners, inner sep=7pt},
-      ln/.style={font=\scriptsize\itshape, text=gray!80!black, anchor=north east},
+      layer/.style={draw=gray!60, dashed, rounded corners, inner sep=8pt},
+      ln/.style={font=\scriptsize\bfseries\itshape, text=blue!75!black, anchor=north west},
     ]
     % inputs
-    \node[m, fill=gray!10] (in)  at (0,0)    {Button / Coin Inputs\\\scriptsize K1 (PC13), K0 (PA0), STOP (PA1), UART};
-    % drivers
-    \node[m] (deb) at (0,-1.9) {Input Driver + Debounce Integrator\\\scriptsize \code{hal_button_engine.c} ($30\,\text{ms}$)};
-    \node[m] (gst) at (0,-3.7) {Multi-Gesture Decoder\\\scriptsize \code{hal_button_gesture.c}};
-    % app
-    \node[m] (evt) at (0,-5.5) {Front Panel Dispatcher\\\scriptsize \code{wm_two_button / wm_single_button}};
-    % fsm
-    \node[m, fill=stRun, minimum width=4.5cm, minimum height=1.3cm, font=\small\bfseries] (fsm) at (0,-7.6) {Deterministic FSM Core\\\scriptsize\mdseries \code{washing_machine_fsm.c}};
-    % timers
-    \node[m] (tick) at (-6.4,-7.6) {Timer \& Clock Engine\\\scriptsize SysTick 1\,ms $\rightarrow$ 1\,ms / 1\,s ticks\\\scriptsize (Drives debounce and blinkers)};
-    % outputs
-    \node[m] (cb)  at (0,-9.8) {HAL Output Callbacks\\\scriptsize \code{hal_output_callbacks_t}};
-    \node[m] (led) at (-4.6,-11.8) {LED Blinker Engine\\\scriptsize \code{hal_led_blinker.c} ($1\,\text{Hz}, 2\,\text{Hz}$)};
-    \node[m] (act) at (0,-11.8) {Actuator Driver\\\scriptsize Motor / Pump / Solenoid Lock};
-    \node[m] (ui)  at (4.6,-11.8) {Dashboard \& Telemetry\\\scriptsize \code{ui_render.c}, \code{ui_text.c}};
-    \node[m, fill=gray!10] (hw) at (0,-13.6) {Board Peripherals (\code{board_h750.c}, \code{lcd_st7735.c}): GPIO, SPI4, USART1, TIM1};
-    % coin pulse (ready for real acceptor)
-    \node[m, dashed] (coin) at (5.6,-1.9) {Coin Pulse Decoder\\\scriptsize \code{hal_coin_pulse.c} (Opto-isolator ready)};
+    \node[m, fill=gray!10] (in) at (0,0) {Button / Coin Inputs\\\scriptsize K1 (PC13), K0 (PA0), STOP (PA1), UART};
 
+    % drivers (spacious layout, zero clipping)
+    \node[m, minimum width=3.8cm] (deb) at (0,-2.0) {Button Debounce Driver\\[1pt]\scriptsize \code{hal_button_engine.c}\\[1pt]\scriptsize ($30\,\text{ms}$ Integrator)};
+    \node[m, dashed, minimum width=3.2cm] (coin) at (5.2,-2.0) {Coin Pulse Decoder\\[1pt]\scriptsize \code{hal_coin_pulse.c}\\[1pt]\scriptsize (Opto-isolated)};
+    \node[m, minimum width=4.4cm] (gst) at (0,-4.2) {Multi-Gesture Decoder\\\scriptsize \code{hal_button_gesture.c} (5-state sub-FSM)};
+
+    % application dispatcher
+    \node[m, minimum width=4.6cm] (evt) at (0,-6.4) {Front Panel Dispatcher\\\scriptsize \code{wm_two_button.c} / \code{wm_single_button.c}};
+
+    % fsm & time-base
+    \node[m, fill=stRun, minimum width=4.6cm, minimum height=1.2cm, font=\small\bfseries] (fsm) at (0,-8.6) 
+      {Deterministic FSM Core\\\scriptsize\mdseries \code{washing_machine_fsm.c}};
+    \node[m, minimum width=4.2cm] (tick) at (-6.2,-8.6) {Timer \& Clock Engine\\\scriptsize SysTick 1\,ms $\rightarrow$ 1\,ms / 1\,s ticks\\\scriptsize (Drives debounce and blinkers)};
+
+    % outputs
+    \node[m, minimum width=4.2cm] (cb)  at (0,-10.8) {HAL Output Callbacks\\\scriptsize \code{hal_output_callbacks_t}};
+    \node[m, minimum width=3.4cm] (led) at (-4.8,-12.8) {LED Blinker Engine\\\scriptsize \code{hal_led_blinker.c} ($1\,\text{Hz}, 2\,\text{Hz}$)};
+    \node[m, minimum width=3.2cm] (act) at (0,-12.8) {Actuator Driver\\\scriptsize Motor / Pump / Solenoid};
+    \node[m, minimum width=3.4cm] (ui)  at (4.8,-12.8) {Dashboard \& Telemetry\\\scriptsize \code{ui_render.c}, \code{ui_text.c}};
+    \node[m, fill=gray!10, minimum width=13.6cm] (hw) at (0,-14.8) 
+      {Board Peripherals (\code{board_h750.c}, \code{lcd_st7735.c}): GPIO, SPI4, USART1, TIM1 PWM};
+
+    % signal flow
     \draw[a] (in) -- (deb);
     \draw[a] (deb) -- (gst);
-    \draw[a] (gst) -- node[right, font=\scriptsize]{click / double / hold} (evt);
+    \draw[a] (gst) -- node[right, font=\scriptsize]{Gestures (Click / Double / Hold)} (evt);
     \draw[a] (evt) -- node[right, font=\scriptsize]{\code{wm_event_t}} (fsm);
-    \draw[a] (tick) -- node[below, font=\scriptsize]{ticks} (fsm);
+    \draw[a] (tick) -- node[below, font=\scriptsize]{Periodic Ticks} (fsm);
     \draw[a] (fsm) -- (cb);
     \draw[a] (cb) -| (led);
     \draw[a] (cb) -- (act);
@@ -71,16 +76,17 @@ Figure~\ref{fig:arch} illustrates the four-tier architectural hierarchy:
     \draw[a] (tick.north) |- (deb.west);
     \draw[a, dashed] (fsm.east) -| node[pos=0.25, above, font=\scriptsize]{state snapshot} (ui.north);
 
+    % architectural layer boundaries with right-hand badges (zero collision)
     \begin{scope}[on background layer]
-      \node[layer, fit=(deb)(gst)(coin)] (L1) {};
-      \node[layer, fit=(evt)] (L2) {};
-      \node[layer, fit=(fsm)(tick)] (L3) {};
-      \node[layer, fit=(cb)(led)(act)(ui)] (L4) {};
+      \draw[layer, fill=blue!1] (-8.6, -1.2) rectangle (10.5, -4.9);
+      \draw[layer, fill=blue!1] (-8.6, -5.5) rectangle (10.5, -7.3);
+      \draw[layer, fill=blue!1] (-8.6, -7.6) rectangle (10.5, -9.6);
+      \draw[layer, fill=blue!1] (-8.6, -9.9) rectangle (10.5, -13.7);
     \end{scope}
-    \node[ln, anchor=south east] at (L1.north east) {Input HAL};
-    \node[ln, anchor=north west] at (L2.north east) {Application};
-    \node[ln, anchor=south east] at (L3.south east) {Core logic};
-    \node[ln] at (L4.north east) {Output HAL};
+    \node[fill=white, draw=blue!50, rounded corners=2pt, font=\scriptsize\bfseries\color{blue!80!black}, inner sep=3pt, anchor=east] at (10.2, -1.6) {Layer 1: Input HAL};
+    \node[fill=white, draw=blue!50, rounded corners=2pt, font=\scriptsize\bfseries\color{blue!80!black}, inner sep=3pt, anchor=east] at (10.2, -6.4) {Layer 2: Application};
+    \node[fill=white, draw=blue!50, rounded corners=2pt, font=\scriptsize\bfseries\color{blue!80!black}, inner sep=3pt, anchor=east] at (10.2, -8.6) {Layer 3: Core Logic};
+    \node[fill=white, draw=blue!50, rounded corners=2pt, font=\scriptsize\bfseries\color{blue!80!black}, inner sep=3pt, anchor=east] at (10.2, -10.8) {Layer 4: Output HAL};
   \end{tikzpicture}}
   \caption{Layered software architecture of the washing machine control system}
   \label{fig:arch}
@@ -180,7 +186,7 @@ Figure~\ref{fig:seq-diagram} depicts the end-to-end execution sequence when a us
       box/.style={draw, thick, rounded corners, fill=blue!8, minimum width=2.4cm, minimum height=0.7cm, align=center},
       call/.style={thick, -{Stealth[length=2mm]}},
       ret/.style={thick, dashed, -{Stealth[length=2mm]}},
-      note/.style={draw, fill=yellow!15, rounded corners, font=\scriptsize, align=center}
+      note/.style={draw=orange!80!black, thick, fill=yellow!20, rounded corners, font=\scriptsize, align=center, inner sep=4pt}
     ]
     % Entities
     \node[box] (usr) at (0,0) {User / Plant};
@@ -191,25 +197,28 @@ Figure~\ref{fig:seq-diagram} depicts the end-to-end execution sequence when a us
     \node[box, fill=teal!10] (hal) at (16.0,0) {HAL Callbacks\\[-2pt]\scriptsize \code{Outputs}};
 
     % Lifelines
-    \draw[lifeline] (usr) -- (0,-6.2);
-    \draw[lifeline] (gpio) -- (3.2,-6.2);
-    \draw[lifeline] (deb) -- (6.4,-6.2);
-    \draw[lifeline] (gst) -- (9.6,-6.2);
-    \draw[lifeline] (fsm) -- (12.8,-6.2);
-    \draw[lifeline] (hal) -- (16.0,-6.2);
+    \draw[lifeline] (usr) -- (0,-8.2);
+    \draw[lifeline] (gpio) -- (3.2,-8.2);
+    \draw[lifeline] (deb) -- (6.4,-8.2);
+    \draw[lifeline] (gst) -- (9.6,-8.2);
+    \draw[lifeline] (fsm) -- (12.8,-8.2);
+    \draw[lifeline] (hal) -- (16.0,-8.2);
 
     % Calls
     \draw[call] (0,-1.0) -- node[above, font=\scriptsize]{Press K1} (3.2,-1.0);
     \draw[call] (3.2,-1.5) -- node[above, font=\scriptsize]{Raw HIGH} (6.4,-1.5);
     \draw[call] (6.4,-2.3) -- node[above, font=\scriptsize]{Stable Press ($30\,\text{ms}$)} (9.6,-2.3);
-    \draw[call] (0,-2.6) -- node[above, font=\scriptsize]{Release K1} (3.2,-2.6);
-    \draw[call] (9.6,-3.4) -- node[above, font=\scriptsize]{Single Click Detected} (12.8,-3.4);
+    \draw[call] (0,-2.8) -- node[above, font=\scriptsize]{Release K1} (3.2,-2.8);
+    \draw[call] (9.6,-3.6) -- node[above, font=\scriptsize]{Single Click Token} (12.8,-3.6);
     
-    \node[note] at (12.8,-4.2) {State = READY $\implies$\\Transition T08 fired\\$b := 0, t := 1800\,\text{s}$};
+    % FSM Transition Execution Note (Clear vertical separation)
+    \node[note, text width=3.2cm] at (12.8,-4.5) 
+      {\textbf{T08 Fired}: \st{READY} $\to$ \st{RUNNING}\\[2pt]$b := 0, \quad t := 1800\,\text{s}$};
 
-    \draw[call] (12.8,-4.8) -- node[above, font=\scriptsize]{\code{set_door_lock(LOCKED)}} (16.0,-4.8);
-    \draw[call] (12.8,-5.4) -- node[above, font=\scriptsize]{\code{set_motor(AGITATE)}} (16.0,-5.4);
-    \draw[call] (12.8,-6.0) -- node[above, font=\scriptsize]{\code{set_bled(BLINK_1HZ)}} (16.0,-6.0);
+    % Actuator Callbacks invoked below note (Zero text overlap)
+    \draw[call] (12.8,-5.9) -- node[above, font=\scriptsize]{\code{set_door_lock(LOCKED)}} (16.0,-5.9);
+    \draw[call] (12.8,-6.6) -- node[above, font=\scriptsize]{\code{set_motor(AGITATE)}} (16.0,-6.6);
+    \draw[call] (12.8,-7.3) -- node[above, font=\scriptsize]{\code{set_bled(BLINK_1HZ)}} (16.0,-7.3);
   \end{tikzpicture}}
   \caption{UML sequence diagram: Deterministic signal propagation from physical press to actuator callback}
   \label{fig:seq-diagram}

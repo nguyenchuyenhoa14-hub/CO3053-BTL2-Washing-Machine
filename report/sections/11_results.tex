@@ -122,20 +122,20 @@ Figure~\ref{fig:lcd-frames} presents the 16-bit RGB565 color graphical frames ge
 
 \begin{figure}[H]
   \centering
-  \setlength{\tabcolsep}{3pt}
+  \setlength{\tabcolsep}{2pt}
   \begin{tabular}{ccc}
     \includegraphics[width=0.31\linewidth]{lcd_standby.png} &
     \includegraphics[width=0.31\linewidth]{lcd_notenough.png} &
     \includegraphics[width=0.31\linewidth]{lcd_readychange.png} \\
-    \small (a) STANDBY (Ready to insert) & \small (b) Premature RUN Warning & \small (c) Fare Ready Notice \\[4pt]
+    \small (a) \st{STANDBY} (Awaiting Coins) & \small (b) Premature \code{RUN} Warning & \small (c) Fare Ready (Change Prompt) \\[4pt]
     \includegraphics[width=0.31\linewidth]{lcd_running_wash.png} &
     \includegraphics[width=0.31\linewidth]{lcd_running_spin_hold.png} &
     \includegraphics[width=0.31\linewidth]{lcd_paused.png} \\
-    \small (d) RUNNING (Agitate phase) & \small (e) RUNNING (Spin phase, K1 held) & \small (f) PAUSED (Actuators suspended) \\[4pt]
+    \small (d) \st{RUNNING} (Agitate Phase) & \small (e) \st{RUNNING} (Spin Extraction) & \small (f) \st{PAUSED} (Actuators Idle) \\[4pt]
     \includegraphics[width=0.31\linewidth]{lcd_error.png} &
     \includegraphics[width=0.31\linewidth]{lcd_standby10.png} &
     \includegraphics[width=0.31\linewidth]{lcd_ready.png} \\
-    \small (g) ERROR (Door safety trip) & \small (h) COLLECTING (10\cent{} deposited) & \small (i) READY (50\cent{} fulfilled) \\
+    \small (g) \st{ERROR} (Door Interlock Trip) & \small (h) \st{COLLECTING} ($10\,\text{\textcent}$ Staged) & \small (i) \st{READY} ($50\,\text{\textcent}$ Fulfilled) \\
   \end{tabular}
   \caption{Pixel-accurate graphical dashboard states rendered by the firmware presentation pipeline}
   \label{fig:lcd-frames}

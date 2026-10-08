@@ -257,34 +257,45 @@ board, detailing the wiring of the ST7735 LCD, user controls, UART logging, and 
       wire/.style={thick, -{Stealth[length=2.2mm]}},
       bwire/.style={thick, {Stealth[length=2.2mm]}-{Stealth[length=2.2mm]}},
     ]
-    \node[blk, minimum width=4.5cm, minimum height=7.6cm, fill=gray!8] (mcu) at (0,0) {};
-    \node[font=\bfseries, align=center] at (0,3.3) {STM32H750VBT6\\\footnotesize WeAct MiniSTM32H7xx Core Board};
-    \node[font=\scriptsize\ttfamily, anchor=west] at (-2.1,2.0)  {PC13};
-    \node[font=\scriptsize\ttfamily, anchor=west] at (-2.1,0.9)  {PA0};
-    \node[font=\scriptsize\ttfamily, anchor=west] at (-2.1,-0.2) {PA1};
-    \node[font=\scriptsize\ttfamily, anchor=west] at (-2.1,-1.6) {PA9 / PA10};
-    \node[font=\scriptsize\ttfamily, anchor=east] at (2.1,2.0)   {PE3};
-    \node[font=\scriptsize\ttfamily, anchor=east, align=right] at (2.1,0.0) {PE12 SCK, PE14 MOSI\\PE11 CS, PE13 DC\\PE10 BL (PWM)};
-    \node[font=\scriptsize\ttfamily, anchor=east] at (2.1,-2.2)  {PA13 / PA14};
+    % MCU Core Box (Wide and spacious)
+    \node[blk, minimum width=6.4cm, minimum height=8.2cm, fill=gray!8] (mcu) at (0,0) {};
+    \node[draw=blue!60!black, thick, rounded corners, fill=blue!10, minimum width=5.8cm, align=center] at (0,3.3) 
+      {\textbf{\large STM32H750VBT6}\\[2pt]\footnotesize WeAct MiniSTM32H7xx Core Board ($400\,\text{MHz}$)};
 
-    \node[blk, fill=orange!10] (k1) at (-6.2,2.0) {Onboard Key K1\\\scriptsize Active HIGH (Pull-Down)};
-    \node[blk, dashed, fill=orange!5] (k0) at (-6.2,0.9) {Optional Key K0\\\scriptsize External to GND};
-    \node[blk, dashed, fill=orange!5] (stop) at (-6.2,-0.2) {Optional Key STOP\\\scriptsize External to GND};
-    \node[blk, fill=blue!10] (pc) at (-6.2,-1.6) {Host PC / USB-TTL\\\scriptsize 115200 8N1 Telemetry};
+    % Left pin labels (Inputs, anchored west with inner margin)
+    \node[font=\scriptsize\ttfamily, anchor=west] at (-2.95,2.0)  {PC13 (Key K1)};
+    \node[font=\scriptsize\ttfamily, anchor=west] at (-2.95,0.9)  {PA0  (Key K0)};
+    \node[font=\scriptsize\ttfamily, anchor=west] at (-2.95,-0.2) {PA1  (Key STOP)};
+    \node[font=\scriptsize\ttfamily, anchor=west] at (-2.95,-1.6) {PA9 / PA10 (USART1)};
 
-    \node[blk, fill=green!10] (led) at (6.2,2.0) {Physical LED PE3\\\scriptsize Status: $\text{RLED} \lor \text{BLED}$};
-    \node[blk, fill=teal!10, minimum height=1.8cm] (lcd) at (6.2,0) {0.96$''$ ST7735 LCD\\\scriptsize $160 \times 80$ RGB565\\\scriptsize SPI4 Master @ 12.5\,MHz};
-    \node[blk, dashed, fill=gray!10] (swd) at (6.2,-2.2) {ST-Link / SWD\\\scriptsize Debug / Flash};
+    % Right pin labels (Outputs, anchored east with inner margin)
+    \node[font=\scriptsize\ttfamily, anchor=east] at (2.95,2.0)   {PE3 (User LED)};
+    \node[font=\scriptsize\ttfamily, anchor=east, align=right] at (2.95,0.0) 
+      {PE12 SCK, PE14 MOSI\\PE11 CS, PE13 DC\\PE10 BL (TIM1 PWM)};
+    \node[font=\scriptsize\ttfamily, anchor=east] at (2.95,-2.2)  {PA13 / PA14 (SWD)};
 
-    \draw[wire] (k1) -- (-2.15,2.0);
-    \draw[wire] (k0) -- (-2.15,0.9);
-    \draw[wire] (stop) -- (-2.15,-0.2);
-    \draw[bwire] (pc) -- (-2.15,-1.6);
-    \draw[wire] (2.15,2.0) -- (led);
-    \draw[wire] (2.15,0) -- (lcd);
-    \draw[bwire] (2.15,-2.2) -- (swd);
+    % External peripherals - Left (spaced out to x=-7.2)
+    \node[blk, fill=orange!10] (k1) at (-7.2,2.0) {Onboard Key K1\\\scriptsize Active HIGH (Pull-Down)};
+    \node[blk, dashed, fill=orange!5] (k0) at (-7.2,0.9) {Optional Key K0\\\scriptsize External to GND};
+    \node[blk, dashed, fill=orange!5] (stop) at (-7.2,-0.2) {Optional Key STOP\\\scriptsize External to GND};
+    \node[blk, fill=blue!10] (pc) at (-7.2,-1.6) {Host PC / USB-TTL\\\scriptsize 115200 8N1 Telemetry};
 
-    \node[font=\scriptsize, text width=12cm, align=center] at (0,-4.4)
+    % External peripherals - Right (spaced out to x=7.4 for clean arrow clearance)
+    \node[blk, fill=green!10] (led) at (7.4,2.0) {Physical LED PE3\\\scriptsize Status: $\text{RLED} \lor \text{BLED}$};
+    \node[blk, fill=teal!10, minimum height=1.8cm] (lcd) at (7.4,0) {0.96$''$ ST7735 LCD\\\scriptsize $160 \times 80$ RGB565\\\scriptsize SPI4 Master @ 12.5\,MHz};
+    \node[blk, dashed, fill=gray!10] (swd) at (7.4,-2.2) {ST-Link / SWD\\\scriptsize Debug / Flash};
+
+    % Wiring connections
+    \draw[wire] (k1.east) -- (-3.2,2.0);
+    \draw[wire] (k0.east) -- (-3.2,0.9);
+    \draw[wire] (stop.east) -- (-3.2,-0.2);
+    \draw[bwire] (pc.east) -- (-3.2,-1.6);
+
+    \draw[wire] (3.2,2.0) -- (led.west);
+    \draw[wire, double, double distance=1.5pt] (3.2,0) -- node[above, font=\scriptsize\bfseries, pos=0.5]{SPI4 + PWM} (lcd.west);
+    \draw[bwire] (3.2,-2.2) -- (swd.west);
+
+    \node[font=\scriptsize, text width=12cm, align=center] at (0,-4.5)
       {Actuators (Drum Motor, Drain Pump, Inlet Valve, Door Deadbolt) are virtualized via the LCD dashboard and UART telemetry.};
   \end{tikzpicture}}
   \caption{Hardware interconnect diagram of the WeAct STM32H750 implementation}

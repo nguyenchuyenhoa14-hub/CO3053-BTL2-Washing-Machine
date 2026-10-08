@@ -48,27 +48,27 @@ plant actuators.
       bsig/.style={thick, {Stealth[length=2.5mm]}-{Stealth[length=2.5mm]}},
     ]
     % Outer boundary
-    \draw[boundary] (-0.8,-4.2) rectangle (14.2,4.8);
-    \node[font=\bfseries\color{blue!70!black}, anchor=north west] at (-0.6,4.6)
+    \draw[boundary] (-0.8,-3.8) rectangle (10.6,4.2);
+    \node[font=\bfseries\color{blue!70!black}, anchor=north west] at (-0.6,4.0)
       {System Boundary: Coin-Operated Washing Machine Controller};
 
-    % Left: External Inputs & Sensors
-    \node[box, fill=orange!10, text width=2.8cm] (user_in) at (-3.2, 2.2)
+    % Left: External Inputs & Sensors (generous horizontal and vertical clearance)
+    \node[box, fill=orange!10, text width=3.0cm] (user_in) at (-4.8, 2.3)
       {\textbf{User Controls}\\[2pt]\scriptsize RUN, PAUSE, STOP\\Coins ($10\,\text{\textcent}, 20\,\text{\textcent}, 50\,\text{\textcent}$)};
-    \node[box, fill=red!10, text width=2.8cm] (sensors) at (-3.2, -1.8)
-      {\textbf{Safety Sensors}\\[2pt]\scriptsize Door Interlock Switch\\Water Level Sensor\\Motor Current Shunt};
-    \node[box, fill=gray!10, text width=2.8cm] (clocks) at (-3.2, 0.2)
+    \node[box, fill=gray!10, text width=3.0cm] (clocks) at (-4.8, 0.0)
       {\textbf{Time Bases}\\[2pt]\scriptsize 1\,kHz SysTick ($1\,\text{ms}$)\\1\,Hz RTC Tick ($1\,\text{s}$)};
+    \node[box, fill=red!10, text width=3.0cm] (sensors) at (-4.8, -2.3)
+      {\textbf{Safety Sensors}\\[2pt]\scriptsize Door Interlock Switch\\Water Level Sensor\\Motor Current Shunt};
 
-    % Middle: HAL & Core
-    \node[box, fill=teal!10, minimum width=3.4cm, minimum height=6.6cm] (hal) at (2.2, 0.2)
+    % Middle: HAL & Core (wide 2.7cm inter-module gap)
+    \node[box, fill=teal!10, minimum width=3.2cm, minimum height=6.2cm] (hal) at (1.2, 0.0)
       {\textbf{Hardware Abstraction}\\\textbf{Layer (HAL)}\\[10pt]
        \scriptsize Debounce Engine ($30\,\text{ms}$)\\[4pt]
        \scriptsize Double-Press Filter ($1.5\,\text{s}$)\\[4pt]
        \scriptsize LED Blinker Engine ($1\,\text{Hz}, 2\,\text{Hz}$)\\[4pt]
        \scriptsize Actuator Interlock Guard};
 
-    \node[box, fill=yellow!15, minimum width=4.4cm, minimum height=6.6cm] (fsm) at (7.6, 0.2)
+    \node[box, fill=yellow!15, minimum width=4.6cm, minimum height=6.2cm] (fsm) at (7.8, 0.0)
       {\textbf{Extended Finite State}\\\textbf{Machine (EFSM) Core}\\[8pt]
        \scriptsize States: \code{STANDBY}, \code{COLLECTING},\\[-2pt]
        \scriptsize \code{READY}, \code{RUNNING}, \code{PAUSED}, \code{ERROR}\\[8pt]
@@ -79,21 +79,24 @@ plant actuators.
        \scriptsize $\code{stop_window_timer_ms} \in [0, 1500]$\\[-2pt]
        \scriptsize $\code{active_error_flags} \in \{0, \dots, 7\}$};
 
-    % Right: Actuators & Indicators
-    \node[box, fill=green!10, text width=3.0cm] (ind) at (17.0, 2.2)
-      {\textbf{Optical Indicators}\\[2pt]\scriptsize Red LED (\code{RLED})\\Blue LED (\code{BLED})\\ST7735 LCD Dashboard};
-    \node[box, fill=purple!10, text width=3.0cm] (act) at (17.0, -1.8)
-      {\textbf{Electromechanical Plant}\\[2pt]\scriptsize Drum Motor (Agitate/Spin)\\Centrifugal Drain Pump\\Water Solenoid Valve\\Door Deadbolt Latch\\Coin Escrow Solenoid};
+    % Right: Actuators & Indicators (Properly padded text, zero clipping)
+    \node[box, fill=green!10, text width=3.2cm, inner sep=4pt] (ind) at (15.0, 2.0)
+      {\textbf{Optical Indicators}\\[3pt]\scriptsize Red LED (\code{RLED})\\Blue LED (\code{BLED})\\ST7735 LCD Dashboard};
+    \node[box, fill=purple!10, text width=3.2cm, inner sep=4pt] (act) at (15.0, -2.0)
+      {\textbf{Plant Actuators}\\[3pt]\scriptsize Drum Motor (Agitate/Spin)\\Centrifugal Drain Pump\\Water Solenoid Valve\\Door Deadbolt Latch\\Coin Escrow Solenoid};
 
-    % Signal routing
-    \draw[sig] (user_in) -- node[above, font=\scriptsize]{Key Gestures} (-0.8, 2.2);
-    \draw[sig] (clocks) -- node[above, font=\scriptsize]{Periodic Ticks} (-0.8, 0.2);
-    \draw[sig] (sensors) -- node[above, font=\scriptsize]{Fault Assertion} (-0.8, -1.8);
+    % Input signal routing (Labels placed cleanly before dashed boundary)
+    \draw[sig] (user_in.east) -- node[above, font=\scriptsize, pos=0.45]{Key Gestures} (user_in.east -| hal.west);
+    \draw[sig] (clocks.east) -- node[above, font=\scriptsize, pos=0.45]{Periodic Ticks} (clocks.east -| hal.west);
+    \draw[sig] (sensors.east) -- node[above, font=\scriptsize, pos=0.45]{Fault Assertion} (sensors.east -| hal.west);
 
-    \draw[bsig] (hal) -- node[above, font=\scriptsize]{Events} node[below, font=\scriptsize]{Commands} (fsm);
+    % Distinct unidirectional communication between HAL and FSM (ample gap, zero clash)
+    \draw[sig] ([yshift=0.8cm]hal.east) -- node[above, font=\scriptsize]{Events} ([yshift=0.8cm]fsm.west);
+    \draw[sig] ([yshift=-0.8cm]fsm.west) -- node[below, font=\scriptsize]{Commands} ([yshift=-0.8cm]hal.east);
 
-    \draw[sig] (11.0, 2.2) -- node[above, font=\scriptsize]{PWM / GPIO / SPI} (ind);
-    \draw[sig] (11.0, -1.8) -- node[above, font=\scriptsize]{Relay / Triac Control} (act);
+    % Outputs emerging cleanly past boundary line
+    \draw[sig] ([yshift=0.8cm]fsm.east) -- ++(3.1,0) node[above, font=\scriptsize, pos=0.65]{PWM / GPIO / SPI} -- (ind.west);
+    \draw[sig] ([yshift=-0.8cm]fsm.east) -- ++(3.1,0) node[above, font=\scriptsize, pos=0.65]{Relay / Triac} -- (act.west);
   \end{tikzpicture}}
   \caption{Formal system boundary diagram of the coin-operated washing machine control unit}
   \label{fig:sys-boundary}

@@ -49,8 +49,8 @@
     \draw[fa] (in) -- (ev);
     \draw[fa] (ev) -- (sec);
     \draw[fa] (sec) -- node[right, font=\scriptsize]{yes} (tick);
-    \draw[fa] (sec.west) -- node[above, font=\scriptsize]{no} ++(-1.4,0) |- (ms.west);
-    \draw[fa] (tick.west) -- ++(-1.8,0) |- (ms.west);
+    \draw[fa] (sec.west) -- node[above, font=\scriptsize]{no} ++(-1.4,0) coordinate (ret) |- (ms.west);
+    \draw[thick] (tick.west) -| (ret);
     \draw[fa] (ms) -- node[above, font=\scriptsize]{no} (uart);
     \draw[fa] (uart) -- (out);
     \draw[fa] (out) -- (log);
@@ -227,7 +227,7 @@ recovery path governed by Safety Invariant $I_3$ and Assumption A8.
     \draw[fa] (safe) -- (enter);
     \draw[fa] (enter) -- (wait);
     \draw[fa] (wait) -- node[right, font=\scriptsize]{yes} (was_cycle);
-    \draw[fa] (wait.east) -- node[above, font=\scriptsize]{no (TICK$_{1\text{s}}$ active)} ++(1.4,0) |- (enter.east);
+    \draw[fa] (wait.east) -- ++(2.8,0) node[pos=0.45, above, font=\scriptsize]{no (TICK$_{1\text{s}}$ active)} |- (enter.east);
     \draw[fa] (was_cycle) -| node[above, font=\scriptsize, pos=0.25]{yes} (res_pause);
     \draw[fa] (was_cycle) -| node[above, font=\scriptsize, pos=0.25]{no} (res_idle);
   \end{tikzpicture}}

@@ -90,8 +90,8 @@ Transition identifiers T$xx$ correspond bijectively to Table~\ref{tab:transition
       \draw[tr] (S) -- node[lbl, sloped, above=2pt, pos=0.5]{T01: COIN($v$) [$b{+}v<50$]} (C);
       \draw[tr, dashed] (C) to[out=180,in=95] node[lbl, sloped, above=2pt, pos=0.5]{T06: STOP\,$\times$2 / return $b$} (S);
       \draw[tr] (C) -- node[lbl, above=2pt]{T04: COIN($v$) [$b{+}v\geq 50$]} (R);
-      \draw[tr] (S) to[bend left=5] node[lbl, sloped, above=1pt, pos=0.68]{T02: COIN($v$) [$b{+}v\geq 50$]} (R);
-      \draw[tr, dashed] (R) to[bend left=6] node[lbl, sloped, below=1pt, pos=0.35]{T06: STOP\,$\times$2 / return $b$} (S);
+      \draw[tr] (S) to[out=10,in=200] node[lbl, above=2pt, pos=0.55]{T02: COIN($v$) [$b{+}v\geq 50$]} (R);
+      \draw[tr, dashed] (R) to[out=230,in=330] node[lbl, below=2pt, pos=0.45]{T06: STOP\,$\times$2 / return $b$} (S);
       \draw[tr] (C) to[out=65,in=115,looseness=5] node[lbl, above]{T03: COIN($v$) [$b{+}v<50$] / $b{+}{=}v$} (C);
       \draw[tr] (R) to[out=65,in=115,looseness=5] node[lbl, above]{T07: COIN($v$) / $b{+}{=}v$ (surplus)} (R);
 
@@ -102,8 +102,8 @@ Transition identifiers T$xx$ correspond bijectively to Table~\ref{tab:transition
       \draw[tr] (U) to[out=-25,in=25,looseness=5] node[lbl, right, align=left]{T10: TICK$_{1s}$ [$t>1$]\\/ $t{-}{-}$, update phase} (U);
       \draw[tr] (P) to[out=-65,in=-115,looseness=5] node[lbl, below]{T15: TICK$_{1s}$ [$t>1$] / $t{-}{-}$ (timer continues)} (P);
 
-      % end of cycle
-      \draw[tr] (P) -- node[lbl, sloped, above=2pt, pos=0.45, align=center]{T16: TICK$_{1s}$ [$t=1$]\\T13: STOP\,$\times$2} (S);
+      % end of cycle (upright labels, zero slant collision)
+      \draw[tr] (P) to[bend left=8] node[lbl, above right=1pt, pos=0.45, align=center]{T16: TICK$_{1s}$ [$t=1$]\\[1pt]T13: STOP\,$\times$2} (S);
       \draw[tr] (U) .. controls (12,-11) and (-2,-10) .. node[lbl, pos=0.55, below=2pt]{T11: TICK$_{1s}$ [$t=1$] / cycle complete \;|\; T13: STOP\,$\times$2 / force stop} (S);
     \end{scope}
   \end{tikzpicture}}
@@ -117,18 +117,18 @@ Transition identifiers T$xx$ correspond bijectively to Table~\ref{tab:transition
   \begin{tikzpicture}
     \node[draw, thick, rounded corners, fill=gray!10, align=center, minimum width=3.8cm, minimum height=1.8cm, font=\small]
       (ANY) at (0,0) {Any State $X \neq \text{ERROR}$\\\scriptsize STANDBY, COLLECTING,\\\scriptsize READY, RUNNING, PAUSED};
-    \node[state, fill=stErr] (E) at (8,0) {ERROR\\[-1pt]\scriptsize\mdseries R:2Hz B:OFF};
-    \node[state, fill=stPause, minimum size=2cm] (P) at (15.5,2.6) {PAUSED};
+    \node[state, fill=stErr] (E) at (7.6,0) {ERROR\\[-1pt]\scriptsize\mdseries R:2Hz B:OFF};
+    \node[state, fill=stPause, minimum size=2cm] (P) at (16.0,2.6) {PAUSED};
     \node[draw, thick, rounded corners, fill=stIdle, align=center, minimum width=3.2cm, minimum height=1.4cm, font=\small\bfseries]
-      (I) at (15.5,-2.6) {STANDBY /\\COLLECTING /\\READY};
+      (I) at (16.0,-2.6) {STANDBY /\\COLLECTING /\\READY};
 
     \begin{scope}[on background layer]
       \draw[tr] (ANY) -- node[lbl, above=3pt]{T17: FAULT\\/ save $X$, all actuators OFF,\\unlock door, RLED 2\,Hz} (E);
       \draw[tr] (E) to[out=65,in=115,looseness=5] node[lbl, above]{T18/T19: TICK$_{1s}$ [cycle in progress] / $t{-}{-}$} (E);
-      \draw[tr] (E) -- node[lbl, sloped, above=2pt, pos=0.6]{T20: CLEARED [cycle $\wedge$ $t>0$]} (P);
-      \draw[tr] (E) -- node[lbl, sloped, below=2pt, pos=0.56]{T21: CLEARED [otherwise] / restore by $b$} (I);
+      \draw[tr] (E) -- node[lbl, above=3pt, pos=0.52]{T20: CLEARED [cycle $\wedge$ $t>0$]} (P);
+      \draw[tr] (E) -- node[lbl, below=3pt, pos=0.55]{T21: CLEARED [otherwise] / restore by $b$} (I);
     \end{scope}
-    \node[font=\scriptsize, align=left, text width=6cm, anchor=north] at (4,-2.0)
+    \node[font=\scriptsize, align=left, text width=6cm, anchor=north] at (3.8,-2.0)
       {RUN, PAUSE, STOP and coins are ignored in ERROR (lock-out).\\
        ``cycle in progress'' $\Leftrightarrow X \in \{$RUNNING, PAUSED$\}$.};
   \end{tikzpicture}}
