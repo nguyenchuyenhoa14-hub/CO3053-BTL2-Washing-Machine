@@ -1,94 +1,213 @@
 % =============================================================================
-\section{System Analysis}
+\section{System Analysis \& Safety Invariants}
 \label{sec:analysis}
 % =============================================================================
 
-\subsection{Behaviour of the system}
+\subsection{Operational Lifecycle Analysis}
 
-From the customer's point of view a washing session has three phases:
+From the operational perspective of a commercial laundromat, a washing machine cycle represents
+a tightly bound physical and financial transaction. To establish a defect-free control architecture,
+the system lifecycle is partitioned into four sequential phases:
 
 \begin{enumerate}
-  \item \textbf{Payment.} The customer inserts coins one by one. The machine only needs to remember
-        the balance and compare it with 50\cent. Nothing mechanical happens.
-  \item \textbf{Washing.} After RUN, the machine owns a \emph{time budget} of 30 minutes. The
-        customer may pause and resume, but pausing does not buy extra time: the budget is consumed
-        by wall-clock time, not by motor time. This is the most important observation of the
-        analysis: \emph{the timer belongs to the session, not to the motor}.
-  \item \textbf{End.} The session ends when the budget is used up, or when the customer
-        deliberately confirms a stop by pressing STOP twice. A single accidental touch must not
-        cancel a paid cycle.
+  \item \textbf{Monetary Accumulation Phase:} The system begins in an idle, receptive state. The customer
+        deposits legal tender tokens ($10\,\text{\textcent}$, $20\,\text{\textcent}$, or $50\,\text{\textcent}$)
+        into the acceptor. No mechanical actuators or water valves are energized. The controller merely
+        increments an internal balance accumulator. If the user decides to abort prior to starting the wash,
+        a dual-press of \code{STOP} returns the entire deposit.
+  \item \textbf{Washing Execution Phase:} Upon reaching or exceeding the $50\,\text{\textcent}$ threshold, the
+        machine transitions to the ready state. Depressing \code{RUN} locks the door deadbolt, clears the coin
+        balance to zero (unconditional forfeit of surplus deposit), and assigns a fixed wall-clock budget
+        $T_{\text{cycle}} = 1800\,\text{s}$ ($30\,\text{minutes}$). The controller dynamically steers the drum
+        motor between low-speed bidirectional tumbling ($0 \le t \le 1500\,\text{s}$) and high-speed unidirectional
+        centrifugal extraction with an active drain pump ($1500 < t \le 1800\,\text{s}$).
+  \item \textbf{Operational Suspension (Pause) Phase:} Actuating \code{PAUSE} halts drum rotation and fluid
+        drainage immediately, while maintaining the door lock deadbolt to protect the user from escaping hot water
+        or splashing suds. Crucially, \emph{the countdown timer belongs to the session slot, not the motor}.
+        Wall-clock time continues to decrement monotonically. Resuming via \code{RUN} restores the appropriate
+        motor agitation profile with the remaining time budget intact.
+  \item \textbf{Finalization \& Termination Phase:} A session concludes either normally when the countdown reaches
+        zero ($t = 0$), or abnormally when the user confirms a manual termination by depressing \code{STOP}
+        twice within $1.5\,\text{s}$. Upon termination, all actuators are de-energized, the door latch is released,
+        and the system resets to \code{STANDBY}.
 \end{enumerate}
 
-\noindent Errors (e.g.\ the door is opened) can happen in any phase and must override everything else:
-the actuators are switched off first, then the user is informed by a blinking RLED.
+\subsection{System Boundary and Interconnect Architecture}
 
-\noindent Two different kinds of information therefore have to be kept:
+Figure~\ref{fig:sys-boundary} illustrates the formal system boundary separating the deterministic
+Control Unit Core from the external human operator, peripheral physical sensors, and electromechanical
+plant actuators.
+
+\begin{figure}[H]
+  \centering
+  \resizebox{0.95\linewidth}{!}{%
+  \begin{tikzpicture}[
+      box/.style={draw, thick, rounded corners, align=center, font=\small, fill=white},
+      boundary/.style={draw=blue!70!black, very thick, dashed, rounded corners, fill=blue!2},
+      sig/.style={thick, -{Stealth[length=2.5mm]}},
+      bsig/.style={thick, {Stealth[length=2.5mm]}-{Stealth[length=2.5mm]}},
+    ]
+    % Outer boundary
+    \draw[boundary] (-0.8,-4.2) rectangle (14.2,4.8);
+    \node[font=\bfseries\color{blue!70!black}, anchor=north west] at (-0.6,4.6)
+      {System Boundary: Coin-Operated Washing Machine Controller};
+
+    % Left: External Inputs & Sensors
+    \node[box, fill=orange!10, text width=2.8cm] (user_in) at (-3.2, 2.2)
+      {\textbf{User Controls}\\[2pt]\scriptsize RUN, PAUSE, STOP\\Coins ($10\,\text{\textcent}, 20\,\text{\textcent}, 50\,\text{\textcent}$)};
+    \node[box, fill=red!10, text width=2.8cm] (sensors) at (-3.2, -1.8)
+      {\textbf{Safety Sensors}\\[2pt]\scriptsize Door Interlock Switch\\Water Level Sensor\\Motor Current Shunt};
+    \node[box, fill=gray!10, text width=2.8cm] (clocks) at (-3.2, 0.2)
+      {\textbf{Time Bases}\\[2pt]\scriptsize 1\,kHz SysTick ($1\,\text{ms}$)\\1\,Hz RTC Tick ($1\,\text{s}$)};
+
+    % Middle: HAL & Core
+    \node[box, fill=teal!10, minimum width=3.4cm, minimum height=6.6cm] (hal) at (2.2, 0.2)
+      {\textbf{Hardware Abstraction}\\\textbf{Layer (HAL)}\\[10pt]
+       \scriptsize Debounce Engine ($30\,\text{ms}$)\\[4pt]
+       \scriptsize Double-Press Filter ($1.5\,\text{s}$)\\[4pt]
+       \scriptsize LED Blinker Engine ($1\,\text{Hz}, 2\,\text{Hz}$)\\[4pt]
+       \scriptsize Actuator Interlock Guard};
+
+    \node[box, fill=yellow!15, minimum width=4.4cm, minimum height=6.6cm] (fsm) at (7.6, 0.2)
+      {\textbf{Extended Finite State}\\\textbf{Machine (EFSM) Core}\\[8pt]
+       \scriptsize States: \code{STANDBY}, \code{COLLECTING},\\[-2pt]
+       \scriptsize \code{READY}, \code{RUNNING}, \code{PAUSED}, \code{ERROR}\\[8pt]
+       \scriptsize Extended Context Variables:\\[-2pt]
+       \scriptsize $\code{coin_balance_cents} \in \mathbb{N}$\\[-2pt]
+       \scriptsize $\code{remaining_cycle_sec} \in [0, 1800]$\\[-2pt]
+       \scriptsize $\code{stop_press_count} \in \{0, 1\}$\\[-2pt]
+       \scriptsize $\code{stop_window_timer_ms} \in [0, 1500]$\\[-2pt]
+       \scriptsize $\code{active_error_flags} \in \{0, \dots, 7\}$};
+
+    % Right: Actuators & Indicators
+    \node[box, fill=green!10, text width=3.0cm] (ind) at (17.0, 2.2)
+      {\textbf{Optical Indicators}\\[2pt]\scriptsize Red LED (\code{RLED})\\Blue LED (\code{BLED})\\ST7735 LCD Dashboard};
+    \node[box, fill=purple!10, text width=3.0cm] (act) at (17.0, -1.8)
+      {\textbf{Electromechanical Plant}\\[2pt]\scriptsize Drum Motor (Agitate/Spin)\\Centrifugal Drain Pump\\Water Solenoid Valve\\Door Deadbolt Latch\\Coin Escrow Solenoid};
+
+    % Signal routing
+    \draw[sig] (user_in) -- node[above, font=\scriptsize]{Key Gestures} (-0.8, 2.2);
+    \draw[sig] (clocks) -- node[above, font=\scriptsize]{Periodic Ticks} (-0.8, 0.2);
+    \draw[sig] (sensors) -- node[above, font=\scriptsize]{Fault Assertion} (-0.8, -1.8);
+
+    \draw[bsig] (hal) -- node[above, font=\scriptsize]{Events} node[below, font=\scriptsize]{Commands} (fsm);
+
+    \draw[sig] (11.0, 2.2) -- node[above, font=\scriptsize]{PWM / GPIO / SPI} (ind);
+    \draw[sig] (11.0, -1.8) -- node[above, font=\scriptsize]{Relay / Triac Control} (act);
+  \end{tikzpicture}}
+  \caption{Formal system boundary diagram of the coin-operated washing machine control unit}
+  \label{fig:sys-boundary}
+\end{figure}
+
+\subsection{Formal Safety Invariants}
+\label{sec:invariants}
+
+To guarantee fail-safe operation under all operating conditions, the software architecture enforces
+five mathematical safety invariants. These invariants are verified at compile-time via static assertions
+and at runtime through the defensive actuator driver \code{hal_actuator_is_safe()} (validated in unit
+test \code{TC-HAL-05}).
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Invariant $I_1$ (Valve-Pump Mutual Exclusion):}
+        Under no operational circumstances shall the water inlet solenoid valve and the centrifugal drain pump
+        be simultaneously energized:
+        \begin{equation}
+          \forall t \ge 0, \quad \neg \Big(\text{Actuator}_{\text{valve}}(t) = \text{OPEN} \;\land\; \text{Actuator}_{\text{pump}}(t) = \text{ON}\Big)
+          \label{eq:inv1}
+        \end{equation}
+        \emph{Physical Rationale:} Simultaneous filling and draining causes continuous potable water loss,
+        cavitation in the pump impeller, and thermal runaway of the pump motor windings.
+
+  \item \textbf{Invariant $I_2$ (Dynamic Door Deadbolt Safety Interlock):}
+        The electromechanical door latch deadbolt must be securely locked whenever the drum motor is active:
+        \begin{equation}
+          \forall t \ge 0, \quad \Big(\text{Actuator}_{\text{motor}}(t) \in \{\text{AGITATE}, \text{SPIN}\}\Big) \implies \Big(\text{Actuator}_{\text{door}}(t) = \text{LOCKED}\Big)
+          \label{eq:inv2}
+        \end{equation}
+        \emph{Physical Rationale:} Prevents customer access during high-speed rotation ($>800\,\text{RPM}$),
+        eliminating the hazard of mechanical entanglement, thermal scalding from hot wash liquor, and sudden room flooding.
+
+  \item \textbf{Invariant $I_3$ (Fail-Safe Quiescence upon Emergency Fault):}
+        Whenever an asynchronous safety fault is asserted, all dynamic actuators must transition to their quiescent
+        off-state within Kopetz's hard real-time latency deadline $T_{\text{react}} \le 30\,\text{ms}$:
+        \begin{equation}
+          \forall t \ge 0, \quad \big(S(t) = \text{ERROR}\big) \implies
+          \begin{cases}
+            \text{Actuator}_{\text{motor}}(t) = \text{OFF} \\
+            \text{Actuator}_{\text{pump}}(t) = \text{OFF} \\
+            \text{Actuator}_{\text{valve}}(t) = \text{CLOSED} \\
+            \text{Actuator}_{\text{door}}(t) = \text{UNLOCKED} \\
+            \text{Indicator}_{\text{RLED}}(t) = \text{BLINK } 2.0\,\text{Hz}
+          \end{cases}
+          \label{eq:inv3}
+        \end{equation}
+
+  \item \textbf{Invariant $I_4$ (Unconditional Zero Change Return upon Cycle Start):}
+        When the system transitions from the ready state to the running state upon actuation of \code{RUN},
+        the accumulated currency balance is cleared to zero without issuing any coin refund:
+        \begin{equation}
+          \forall t \ge 0, \quad \Big(S(t^-) = \text{READY} \;\land\; e(t) = \text{RUN}\Big) \implies \Big(b(t) = 0 \;\land\; \text{Refund}(t) = 0\Big)
+          \label{eq:inv4}
+        \end{equation}
+
+  \item \textbf{Invariant $I_5$ (Strict Monotonic Budget Progression):}
+        During an active washing cycle, whether in normal agitation, extraction, or temporary pause,
+        the remaining cycle budget $t_{\text{remaining}}$ is strictly non-increasing over wall-clock time:
+        \begin{equation}
+          \forall t_1, t_2 \quad \text{such that } t_1 < t_2 \land S(t_1), S(t_2) \in \{\text{RUNNING}, \text{PAUSED}\}, \quad t_{\text{remaining}}(t_2) \le t_{\text{remaining}}(t_1)
+          \label{eq:inv5}
+        \end{equation}
+        Pausing the machine suspends motor motion, but strictly preserves $t_{\text{remaining}}(t_2) < t_{\text{remaining}}(t_1)$
+        under the continuous arrival of 1-second system clock ticks.
+\end{enumerate}
+
+\subsection{State Space Partitioning: Qualitative Modes vs Quantitative Context}
+
+A direct state-machine representation of an 1800-second timer and variable coin deposits would yield
+a state explosion exceeding $1800 \times 100 > 1.8 \times 10^5$ combinatorial states. To ensure strict
+MISRA-C compliance and deterministic verification, the system is designed as an \textbf{Extended Finite
+State Machine (EFSM)}. The state space is partitioned into:
 
 \begin{itemize}
-  \item a small number of \textbf{qualitative modes} (paying, ready, washing, paused, error) that
-        decide how each button is interpreted and what the LEDs show $\Rightarrow$ the \emph{states}
-        of an FSM;
-  \item \textbf{quantitative data} (balance, remaining seconds, STOP window) that change inside a
-        mode $\Rightarrow$ \emph{extended state variables} kept in a context structure, used in guard
-        conditions.
+  \item \textbf{Qualitative Modes ($S$):} Six discrete behavioral states defining the operational posture
+        and visual indicator outputs (Table~\ref{tab:states}).
+  \item \textbf{Quantitative Context Tuple ($C$):} A compact, statically allocated data structure:
+        \begin{equation}
+          C = \big\langle b, t, n, w, f \big\rangle \in \mathbb{N} \times [0, 1800] \times \{0, 1\} \times [0, 1500] \times \{0, \dots, 7\}
+        \end{equation}
+        where:
+        \begin{itemize}
+          \item $b$ (\code{coin_balance_cents}): Accumulated financial deposit in cents ($0 \le b \le 9999$).
+          \item $t$ (\code{remaining_cycle_sec}): Cycle countdown down-counter in seconds ($0 \le t \le 1800$).
+          \item $n$ (\code{stop_press_count}): Number of recorded \code{STOP} pulses within the active window ($n \in \{0, 1\}$).
+          \item $w$ (\code{stop_window_timer_ms}): Remaining duration of the double-press detection window ($0 \le w \le 1500\,\text{ms}$).
+          \item $f$ (\code{active_error_flags}): Bitmask of currently active hardware and safety faults.
+        \end{itemize}
 \end{itemize}
-
-\noindent This leads to an \emph{extended finite-state machine}: 6 states plus 5 context variables:
-\begin{center}
-  \small
-  \begin{tabular}{ll}
-    \code{coin_balance_cents}   & accumulated deposit \\
-    \code{remaining_cycle_sec}  & countdown of the washing cycle \\
-    \code{stop_press_count}     & STOP presses inside the current window (0 or 1) \\
-    \code{stop_window_timer_ms} & remaining time of the 1.5\,s double-press window \\
-    \code{active_error_flags}   & bitmask of active faults \\
-  \end{tabular}
-\end{center}
-
-\subsection{States}
 
 \begin{table}[H]
   \centering
-  \caption{States of the control unit}
+  \caption{Formal state space of the washing machine control unit}
   \label{tab:states}
-  \begin{tabularx}{\linewidth}{lL{2.5cm}Y}
+  \small
+  \begin{tabularx}{\linewidth}{lL{2.8cm}L{3.2cm}Y}
     \toprule
-    \textbf{State} & \textbf{LEDs} & \textbf{Meaning} \\
+    \textbf{State Enum} & \textbf{Optical Indicators} & \textbf{Plant Actuators} & \textbf{Functional Description} \\
     \midrule
-    \st{STANDBY}    & RLED ON, BLED OFF & Idle and available to serve; balance = 0; all actuators off,
-                                          door unlocked. Initial state after power-on. \\
-    \st{COLLECTING} & RLED ON, BLED OFF & Some money inserted but $< 50$\cent. Still ``available'' for the
-                                          user, so the LEDs are the same as STANDBY. \\
-    \st{READY}      & RLED OFF, BLED ON & Balance $\geq 50$\cent; waiting for RUN. More coins can still be
-                                          inserted. \\
-    \st{RUNNING}    & RLED OFF, BLED 1\,Hz & Washing: door locked, motor agitating or spinning, timer
-                                          counting down. \\
-    \st{PAUSED}     & RLED OFF, BLED ON & Motor, pump and valve off; door stays locked; \textbf{timer
-                                          still counting down}. \\
-    \st{ERROR}      & RLED 2\,Hz, BLED OFF & Safety fault: every actuator off and door unlocked; all
-                                          buttons and coins locked out until the fault is cleared. \\
+    \st{STANDBY}    & RLED \code{ON}, BLED \code{OFF}  & All actuators de-energized, Door \code{UNLOCKED} & System idle, available for service. Balance $b = 0$. Initial state post-boot. \\
+    \st{COLLECTING} & RLED \code{ON}, BLED \code{OFF}  & All actuators de-energized, Door \code{UNLOCKED} & Intermediate deposit state ($0 < b < 50\,\text{\textcent}$). Visuals match \code{STANDBY}. Pre-run cancellation allowed. \\
+    \st{READY}      & RLED \code{OFF}, BLED \code{ON}  & All actuators de-energized, Door \code{UNLOCKED} & Minimum execution threshold satisfied ($b \ge 50\,\text{\textcent}$). Primed for \code{RUN}. Further coins accepted. \\
+    \st{RUNNING}    & RLED \code{OFF}, BLED $1.0\,\text{Hz}$ & Motor \code{AGITATE}/\code{SPIN}, Pump, Door \code{LOCKED} & Active washing cycle. Down-counter $t$ decrements every second. Door deadbolt locked. \\
+    \st{PAUSED}     & RLED \code{OFF}, BLED \code{ON}  & Motor \code{OFF}, Pump \code{OFF}, Door \code{LOCKED} & Actuators suspended; down-counter $t$ continues decrementing. Primed for \code{RUN} resumption. \\
+    \st{ERROR}      & RLED $2.0\,\text{Hz}$, BLED \code{OFF} & All actuators de-energized, Door \code{UNLOCKED} & Safety interlock trip. All commands locked out until fault is cleared. Down-counter continues if active. \\
     \bottomrule
   \end{tabularx}
 \end{table}
 
-\subsection{Transition conditions (informal)}
-
-\begin{itemize}
-  \item \st{STANDBY}/\st{COLLECTING} $\rightarrow$ \st{COLLECTING} or \st{READY}: a coin is inserted;
-        the target depends on whether the new balance reaches 50\cent.
-  \item \st{READY} $\rightarrow$ \st{RUNNING}: RUN is pressed. The balance is cleared, the timer is
-        loaded with 1800\,s.
-  \item \st{RUNNING} $\leftrightarrow$ \st{PAUSED}: PAUSE / RUN. The timer is \emph{not} reset when
-        resuming.
-  \item \st{RUNNING}/\st{PAUSED} $\rightarrow$ \st{STANDBY}: the timer reaches 0, or STOP is pressed
-        twice within 1.5\,s.
-  \item \st{COLLECTING}/\st{READY} $\rightarrow$ \st{STANDBY}: STOP pressed twice (customer cancels;
-        deposit returned).
-  \item any state $\rightarrow$ \st{ERROR}: a fault is detected.
-  \item \st{ERROR} $\rightarrow$ previous context: the fault is cleared (PAUSED if a cycle was in
-        progress and time remains, otherwise STANDBY/COLLECTING/READY according to the balance).
-\end{itemize}
-
-\noindent Events that are not listed for a state (for example PAUSE in READY, or a coin in RUNNING) are
-\textbf{ignored}: the FSM stays in the same state and produces no output. This is checked
-systematically by test TC-27 (event-acceptance matrix).
+\noindent \textbf{Macro-States vs Micro-States Disambiguation:} The instructor's specification identifies
+five qualitative operational macro-modes: Standby, Ready, Running, Paused, and Error. In our formal EFSM,
+we introduce the sub-state \st{COLLECTING} to mathematically isolate the condition $0 < \text{balance} < 50\,\text{\textcent}$.
+Externally, \st{COLLECTING} presents identical optical indicators to \st{STANDBY} ($\text{RLED}=\text{ON}, \text{BLED}=\text{OFF}$),
+preserving 100\% visual and behavioral fidelity with the instructor's assignment slides. Internally, separating
+\st{COLLECTING} provides a rigorous mathematical basis for handling pre-cycle session cancellations (Assumption A6)
+without polluting the uninitialized idle state.

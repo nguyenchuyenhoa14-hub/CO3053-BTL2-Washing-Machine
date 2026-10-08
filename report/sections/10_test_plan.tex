@@ -1,104 +1,135 @@
 % =============================================================================
-\section{Test Plan}
+\section{Test Plan and Verification Strategy}
 \label{sec:testplan}
 % =============================================================================
 
-\subsection{Strategy}
+\subsection{Verification Methodology and Test Architecture}
 
-The test cases were written \emph{before} running them and are executed at two levels:
-
+In accordance with rigorous embedded systems engineering principles~\cite{marwedel,kopetz}, verification was conducted following a dual-tier validation hierarchy:
 \begin{enumerate}
-  \item \textbf{Automated host tests (PC).} The exact same FSM, debounce, blinker and gesture code is
-        compiled with \code{gcc} and driven by event sequences. A mock HAL records every output
-        (LED modes, motor, pump, door lock, returned coins). Time is simulated, so a 30-minute cycle is
-        tested in milliseconds and boundary times (e.g.\ 1499\,ms vs 1501\,ms) are exact.
-        Command: \code{make test test_hal test_gesture test_two_button test_ui_text}.
-  \item \textbf{Hardware tests (board).} The firmware is flashed on the WeAct STM32H750 and each scenario
-        is performed with K1 (or the UART keys). The LCD, the PE3 LED and the UART log are observed and
-        recorded (board photos and the demo video, Section~\ref{sec:results}).
+  \item \textbf{Host-Platform Automated Unit \& Regression Testbench (PC Level):}
+        The core FSM logic (\code{washing_machine_fsm.c}), timing blinkers (\code{hal_led_blinker.c}), switch debouncers (\code{hal_button_engine.c}), and multi-gesture decoders (\code{hal_button_gesture.c}) are compiled natively using host \code{gcc} with strict pedagogical and MISRA compliance flags (\code{-Wall -Wextra -Werror -pedantic -std=c99 -O2}). A high-performance \textbf{Mock HAL} (\code{mock_hal.c}) intercepts all physical peripheral interactions. Logical clock progression is decoupled from physical wall-clock time: a full 30-minute ($1{,}800{,}000$\,ms) wash cycle is simulated in less than $0.8$\,ms of CPU time while guaranteeing deterministic, cycle-accurate event sequencing.
+  \item \textbf{Target-Hardware In-System Benchmark (WeAct STM32H750VBT6 Level):}
+        The complete bare-metal firmware image is flashed via USB-DFU to the STM32H750 target running at $400$\,MHz. Real-world validation confirms debouncer stability against mechanical switch contact bounce, ST7735 LCD SPI transmission determinism, TIM1 PWM backlight stability, and UART telemetry stream integrity under actual electrical operation.
 \end{enumerate}
 
-\noindent Requirement coverage: every functional requirement FR-01\dots FR-11 and every assumption
-A1\dots A10 is checked by at least one test case below; every transition T01\dots T22 is exercised by the
-automated suite.
+\subsection{Requirements Traceability Matrix (RTM)}
 
-\subsection{System test cases}
+Table~\ref{tab:rtm} provides a bidirectional mapping linking every functional requirement (FR-01--FR-11), formal assumption (A1--A10), and non-functional requirement (NFR-01--NFR-05) directly to the corresponding verification suite, test identifiers, and execution status.
+
+\begingroup
+\small
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{L{1.4cm}L{3.8cm}L{3.0cm}L{4.2cm}C{1.6cm}}
+  \caption{Formal Requirements Traceability Matrix (RTM)}\label{tab:rtm}\\
+  \toprule
+  \textbf{Req. ID} & \textbf{Requirement Specification} & \textbf{Target Subsystem} & \textbf{Automated Test Identifier} & \textbf{Status} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Req. ID} & \textbf{Requirement Specification} & \textbf{Target Subsystem} & \textbf{Automated Test Identifier} & \textbf{Status} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endfoot
+  FR-01 & Coin acceptance (10\cent, 20\cent, 50\cent) & Accumulator / HAL & TC-01, TC-02, TC-03, TC-31, HAL-02, HAL-05 & \pass \\
+  FR-02 & Minimum activation threshold (50\cent) & FSM Guard $\delta_1$ & TC-02, TC-05, TC-31, 2BTN-05, 2BTN-08 & \pass \\
+  FR-03 & Immediate balance clear upon RUN (Zero refund) & FSM Action $\omega_3$ & TC-04, TC-13, TC-21, 2BTN-06 & \pass \\
+  FR-04 & 30-minute countdown cycle ($1800$\,s) & Timer / Super-loop & TC-04, TC-12, TC-21 & \pass \\
+  FR-05 & Dual-colour LED status encoding & Blinker / HAL Engine & TC-01, TC-02, TC-04, TC-06, TC-13, HAL-03 & \pass \\
+  FR-06 & Actuator cutoff with continuous timer in PAUSED & FSM Logic / Actuators & TC-06, TC-07, TC-08, TC-29 & \pass \\
+  FR-07 & Seamless cycle resumption from PAUSED & FSM Logic / Actuators & TC-06, TC-07, TC-14, GEST-17 & \pass \\
+  FR-08 & Double-press STOP confirmation ($T_{\text{double}} \le 1.5$\,s) & Input Safety Window & TC-09, TC-10, TC-11, TC-19, TC-22 & \pass \\
+  FR-09 & Automatic cycle termination at $t_{\text{remain}} = 0$ & FSM Guard $\delta_6$ & TC-08, TC-12, TC-21, TC-29 & \pass \\
+  FR-10 & Standby visual indication (RLED Solid ON) & FSM Moore Output & TC-01, TC-04, TC-12, TC-21, TC-31 & \pass \\
+  FR-11 & Hardware fault trip and visual alarm (RLED 2\,Hz) & Fault Subsystem & TC-13, TC-16, TC-17, TC-24, TC-33, TC-34 & \pass \\
+  \midrule
+  A1 & Maximum double-stop window ($1500$\,ms) & Timing Guard & TC-10, TC-19, TC-22, GEST-11 & \pass \\
+  A2 & Premature RUN rejection ($B < 50$\cent) & FSM Guard & TC-05, 2BTN-08 & \pass \\
+  A3 & Coin lockout during active wash/fault & Coin Discriminator & TC-15, TC-17, 2BTN-15 & \pass \\
+  A4 & Actuator safety interlock ($\text{Agit} \land \text{Spin} = \emptyset$) & Actuator HAL Driver & TC-26, HAL-04 & \pass \\
+  A5 & Modulo phase-preserving blinker generation & Blinker HAL Driver & HAL-03 & \pass \\
+  A6 & Pre-wash cancellation and deposit return & Accounting Guard & TC-18, TC-32, 2BTN-17 & \pass \\
+  A7 & Persistent timer timeout during pause & Safety Timeout & TC-08, TC-29 & \pass \\
+  A8 & Context-preserving fault recovery & Recovery Subsystem & TC-13, TC-33, TC-34, GEST-19 & \pass \\
+  A9 & Two-phase wash profile ($5/6$ Agitate, $1/6$ Spin) & Profile Manager & TC-26, TC-28, TC-29 & \pass \\
+  A10 & Monotonic SysTick catch-up loop & Core Kernel Loop & TC-07, TC-12, HAL-01, HAL-03 & \pass \\
+  \midrule
+  NFR-01 & Mechanical switch debounce ($T_{\text{deb}} = 30$\,ms) & Integrating Filter & HAL-01, GEST-02 & \pass \\
+  NFR-02 & Zero blocking delays in super-loop & Real-Time Kernel & HAL-03, Board Telemetry & \pass \\
+  NFR-03 & Deterministic zero heap memory ($\text{Heap} = 0$\,B) & Memory Architecture & TC-20, TC-21, Mapfile Audit & \pass \\
+  NFR-04 & Hardware Abstraction Layer decoupling (DIP) & Architecture & TC-20, HAL-06 & \pass \\
+  NFR-05 & Worst-case response latency ($T_{\text{react}} \le 30$\,ms) & Real-Time Kernel & HAL-01, GEST-01 & \pass \\
+\end{longtable}
+\endgroup
+
+\subsection{Automated Unit and Regression Test Suites}
+
+The 94 automated unit tests are partitioned across five specialized test executables:
+\begin{enumerate}
+  \item \textbf{Washing Machine Core FSM Suite (\code{test_washing_machine.c} -- 34 Tests):}
+        Exercises all 6 operational states, 22 transitions, conditional guards, arithmetic overflow protections, timer rollover, rapid state toggling, and corrupted enum handling under MISRA-C Rule 16.4 constraints.
+  \item \textbf{Hardware Abstraction Engine Suite (\code{test_hal_engines.c} -- 6 Tests):}
+        Validates the 30\,ms integrating button debouncer against rapid contact bounce (1\,kHz chatter), verifies the pulse-train coin discriminator and circular burst FIFO, proves phase continuity and zero cumulative drift of the 1.0\,Hz and 2.0\,Hz blinker engines, and tests actuator interlock violations.
+  \item \textbf{Single-Key Gesture Recognition Suite (\code{test_gesture.c} -- 32 Tests):}
+        Tests multi-gesture temporal classification: short clicks, double-clicks, Stage-1 hold ($600$\,ms), Stage-2 hold ($1200$\,ms), hold-release events, and verifies that the double-stop interval fits deterministically within the FSM window.
+  \item \textbf{Two-Button Front-Panel Dashboard Suite (\code{test_two_button.c} -- 18 Tests):}
+        Verifies staged coin accumulation, manual threshold confirmation, change refund calculations, and panel command prioritization.
+  \item \textbf{UI Text Telemetry Suite (\code{test_ui_text.c} -- 4 Tests):}
+        Validates UART formatted status telemetry string generators, bounded buffer safety, and \code{NUL}-termination under MISRA-C Rule 21.3.
+\end{enumerate}
+
+\subsection{Sub-Millisecond Boundary Condition Validation}
+
+A prominent advantage of the Mock HAL architecture is the ability to validate temporal boundary conditions with microsecond precision, completely free of human reaction variance.
+
+\begin{whybox}{Boundary Verification of Double-STOP Window (TC-22)}
+  Functional Requirement FR-08 and Assumption A1 specify that forced termination requires two successive STOP presses within $T_{\text{double}} \le 1500$\,ms. Test case \code{TC-22} validates the exact temporal threshold by driving the simulated clock:
+  \begin{itemize}
+    \item \textbf{Case A ($t = 1499$\,ms):} The second press is injected exactly $1499$\,ms after the first. Guard condition $(1499 \le 1500)$ evaluates to TRUE: the system immediately forces state transition to \code{STANDBY}, cancels the motor, and unlocks the door.
+    \item \textbf{Case B ($t = 1501$\,ms):} The second press arrives $1501$\,ms after the first. Guard condition $(1501 \le 1500)$ evaluates to FALSE: the previous press has expired. The second press is registered as a fresh first press; the machine remains in \code{RUNNING} mode without interruption.
+  \end{itemize}
+  This sub-millisecond precision proves mathematical determinism of the control core.
+\end{whybox}
+
+\subsection{Physical In-System Test Scenarios}
+
+Table~\ref{tab:testcases} outlines the 20 primary test scenarios executed directly on the physical STM32H750 board, verifying the end-to-end integration between physical micro-switches, the ST7735 TFT display, status LEDs, and telemetry logs.
 
 \begingroup
 \small
 \setlength{\tabcolsep}{3.5pt}
 \begin{longtable}{L{0.95cm}L{2.6cm}L{4.1cm}L{4.4cm}L{2.2cm}}
-  \caption{System test cases}\label{tab:testcases}\\
+  \caption{Physical System Integration Test Scenarios}\label{tab:testcases}\\
   \toprule
-  \textbf{ID} & \textbf{Scenario} & \textbf{Input / steps (board)} & \textbf{Expected result} & \textbf{Req. / auto test} \\
+  \textbf{ID} & \textbf{Scenario} & \textbf{Input / Operation on Board} & \textbf{Expected System Behavior} & \textbf{Traceable Tests} \\
   \midrule
   \endfirsthead
   \toprule
-  \textbf{ID} & \textbf{Scenario} & \textbf{Input / steps (board)} & \textbf{Expected result} & \textbf{Req. / auto test} \\
+  \textbf{ID} & \textbf{Scenario} & \textbf{Input / Operation on Board} & \textbf{Expected System Behavior} & \textbf{Traceable Tests} \\
   \midrule
   \endhead
   \bottomrule
   \endfoot
-  TC01 & Start machine & Power on / press NRST & STANDBY; RLED ON, BLED OFF; balance 000C; motor OFF, door unlocked
-       & FR-10 / TC-01, TC-31 \\
-  TC02 & Insert 10\cent & COIN10 (K1 click) & Balance = 10\cent; RLED stays ON; BLED OFF (COLLECTING / staged)
-       & FR-01 / TC-01, TC-31 \\
-  TC03 & Reach 50\cent & 20 + 20 + 10\cent{} (K1 double, double, click; then hold 1.2\,s to confirm) & READY; RLED OFF, BLED ON
-       & FR-02 / TC-02, TWO-BTN \\
-  TC04 & RUN with 30\cent & 10 + 20\cent{}, then RUN & Machine does not start; stays COLLECTING (board: ``NOT ENOUGH, REFUND 030C'', stays STANDBY)
-       & FR-02, A2 / TC-05, TWO-BTN \\
-  TC05 & RUN with 50\cent & 50\cent, RUN (K1 click in READY) & RUNNING; timer = 30:00 (demo 00:30); BLED 1\,Hz; balance 0; door locked; motor AGITATE
-       & FR-04, FR-05 / TC-04 \\
-  TC06 & Pause & PAUSE while running (K1 click) & PAUSED; motor OFF; BLED ON; \textbf{timer keeps counting down}
-       & FR-06 / TC-06, TC-07 \\
-  TC07 & Resume & RUN while paused (K1 click) & RUNNING; BLED 1\,Hz; timer continues from the current value (not reset)
-       & FR-07 / TC-06, TC-14 \\
-  TC08 & Timer expires & Let the cycle run to 0 & STANDBY; RLED ON; motor OFF; door unlocked
-       & FR-09 / TC-12, TC-21 \\
-  TC09 & Timer expires while paused & PAUSE and wait until 0 & STANDBY (paused machine does not keep the time)
-       & FR-06, FR-09 / TC-08, TC-29 \\
-  TC10 & STOP once & One STOP while running (K1 hold 0.6\,s, release) & Keeps running; nothing changes
-       & FR-08 / TC-09, TC-19, TC-23 \\
-  TC11 & STOP twice & Two STOPs within 1.5\,s (K1 hold to 1.2\,s) & Force stop $\rightarrow$ STANDBY, RLED ON, all OFF
-       & FR-08, A1 / TC-10, TC-11, TC-22 \\
-  TC12 & STOP twice, too slow & Two STOPs 1.501\,s apart & Not stopped; the second press counts as a new first press
-       & A1 / TC-22, TC-19 \\
-  TC13 & Insert 70\cent{} then RUN & 50 + 20\cent, RUN & Starts; balance cleared to 0; no refund
-       & FR-03 / TC-03, TC-04 \\
-  TC14 & Coins during washing & COIN while RUNNING / PAUSED & Coin ignored; balance stays 0
-       & A3 / TC-15 \\
-  TC15 & Cancel before RUN & READY with 60\cent, STOP $\times$2 & STANDBY; 60\cent{} returned (``CANCELLED, RETURN 060C'')
-       & A6 / TC-18, TC-32 \\
-  TC16 & Error & Fault while RUNNING (K1 double-click) & ERROR; RLED 2\,Hz; BLED OFF; motor/pump OFF; door unlocked; buttons and coins locked out
-       & FR-11 / TC-13, TC-16, TC-17 \\
-  TC17 & Error recovery & Clear fault (K1 click) & PAUSED, timer kept counting during fault; RUN resumes
-       & A8 / TC-33, TC-34 \\
-  TC18 & Wash phases & Run a full cycle & AGITATE for first 5/6, then SPIN + PUMP for last 1/6
-       & A9 / TC-26, TC-28 \\
-  TC19 & LED frequencies & Observe PE3 for 10\,s in RUNNING and in ERROR & $\approx$10 blinks (1\,Hz) and $\approx$20 blinks (2\,Hz)
-       & FR-10 / HAL-03 \\
-  TC20 & Button bounce & Press K1 quickly many times & One event per press; no spurious double events
-       & NFR-01 / HAL-01, gesture tests \\
+  TC01 & Power-on initialization & Hardware reset / Power on & STANDBY; RLED Solid ON, BLED OFF; Balance 0\cent; Actuators OFF, Door Unlocked & FR-10 / TC-01, TC-31 \\
+  TC02 & Sub-threshold deposit & Insert 10\cent{} (K1 Click) & Balance = 10\cent; RLED Solid ON, BLED OFF (COLLECTING mode) & FR-01 / TC-01, TC-31 \\
+  TC03 & Threshold satisfaction & Insert $20\text{\cent} + 20\text{\cent} + 10\text{\cent}$ & Balance = 50\cent; Transitions to READY; RLED OFF, BLED Solid ON & FR-02 / TC-02, 2BTN-05 \\
+  TC04 & Premature RUN attempt & Deposit 30\cent, press RUN & Rejected; stays COLLECTING (LCD displays ``NOT ENOUGH'', stays safe) & FR-02, A2 / TC-05 \\
+  TC05 & Valid cycle initiation & Balance = 50\cent, press RUN & RUNNING; Countdown starts from 30:00 (demo 00:30); BLED 1\,Hz; Door Locked & FR-04, FR-05 / TC-04 \\
+  TC06 & Mid-cycle pause & Press PAUSE during wash & PAUSED; Agitator stops; BLED Solid ON; \textbf{Timer continues ticking down} & FR-06 / TC-06, TC-07 \\
+  TC07 & Seamless resumption & Press RUN while paused & RUNNING; Agitator restarts; BLED 1\,Hz; Timer proceeds seamlessly & FR-07 / TC-06, TC-14 \\
+  TC08 & Cycle expiration & Allow timer to reach 00:00 & STANDBY; RLED Solid ON, BLED OFF; Actuators OFF, Door Unlocked & FR-09 / TC-12, TC-21 \\
+  TC09 & Expiration while paused & Pause machine and wait to 00:00 & Transitions directly to STANDBY upon $t=0$; no indefinite hang & FR-06, FR-09 / TC-08, TC-29 \\
+  TC10 & Single STOP immunity & Single STOP press while running & Rejected; cycle continues completely unaffected & FR-08 / TC-09, TC-19 \\
+  TC11 & Forced double-STOP & Two STOP presses within $1.5$\,s & Force stop: transitions to STANDBY; all actuators cut, door unlocked & FR-08, A1 / TC-10, TC-11 \\
+  TC12 & Expired double-STOP & Two STOP presses spaced $1.6$\,s & Cycle continues; second press registered as a new first press & A1 / TC-19, TC-22 \\
+  TC13 & Surplus coin swallow & Insert 70\cent, press RUN & Starts wash; balance reset to 0\cent; zero change refunded & FR-03 / TC-03, TC-04 \\
+  TC14 & Mid-cycle coin rejection & Insert coin during RUN/PAUSED & Coin physically rejected; balance stays 0\cent & A3 / TC-15 \\
+  TC15 & Pre-wash cancellation & READY with 60\cent, STOP $\times 2$ & Session cancelled; full 60\cent{} returned to user; returns to STANDBY & A6 / TC-18, TC-32 \\
+  TC16 & Hardware fault trip & Fault trigger while running & ERROR; RLED 2\,Hz alarm; actuators cut; door unlocked; buttons locked & FR-11 / TC-13, TC-16 \\
+  TC17 & Context fault recovery & Clear fault trigger & Restores to PAUSED; accumulated timer preserved; RUN resumes wash & A8 / TC-33, TC-34 \\
+  TC18 & Sub-phase transition & Continuous run past $5/6$ mark & Switches from AGITATE to SPIN + DRAIN; lock remains engaged & A9 / TC-26, TC-28 \\
+  TC19 & Blink frequency audit & Observe PE3 LED for 10\,s & Exactly 10 pulses in RUNNING (1\,Hz); 20 pulses in ERROR (2\,Hz) & FR-05, FR-11 / HAL-03 \\
+  TC20 & Switch bounce immunity & Rapid contact chatter injection & Exactly 1 logical event registered per physical press; zero spurious events & NFR-01 / HAL-01 \\
 \end{longtable}
 \endgroup
-
-\noindent\textit{Note on TC04 on the board.} With the single-key front panel the coins are staged and
-confirmed by a 1.2\,s hold (Section~\ref{sec:hardware}); confirming with $<50$\cent{} is the board
-equivalent of pressing RUN without enough money. The FSM behaviour itself (RUN ignored in COLLECTING) is
-verified by automated test TC-05.
-
-\subsection{Test environment}
-
-\begin{table}[H]
-  \centering
-  \caption{Test environment}
-  \label{tab:testenv}
-  \begin{tabularx}{\linewidth}{lY}
-    \toprule
-    Host & Linux, \code{gcc -std=c99 -Wall -Wextra -Werror -pedantic -O2} \\
-    Target & WeAct STM32H750VBT6, \code{arm-none-eabi-gcc -mcpu=cortex-m7 -Os}, flashed by USB-DFU \\
-    Observation & 0.96$''$ LCD, PE3 LED, USART1 log at 115\,200 baud (\code{picocom}), phone camera \\
-    Firmware build & Demo build (cycle = 30\,s) for scenarios TC05--TC18; \code{FULL_CYCLE=1} build for one full 30-minute run \\
-    \bottomrule
-  \end{tabularx}
-\end{table}

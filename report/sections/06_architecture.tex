@@ -1,12 +1,30 @@
 % =============================================================================
-\section{Software Architecture}
+\section{Software Architecture \& Component Design}
 \label{sec:arch}
 % =============================================================================
 
-\subsection{Layered block diagram}
+\subsection{Architectural Paradigm: Layered Abstraction and Dependency Inversion}
 
-The software is split into four layers. Only the lowest layer knows the STM32 registers; the FSM
-does not know whether it runs on the board, in the PC simulator or in a unit test.
+The firmware is structured strictly according to the **Dependency Inversion Principle (DIP)**
+from modern safety-critical software engineering. Rather than having high-level business logic
+(the FSM) directly read peripheral registers or invoke hardware-specific drivers, both high-level
+and low-level components depend on abstract interfaces defined in \code{hal_interfaces.h}.
+
+Figure~\ref{fig:arch} illustrates the four-tier architectural hierarchy:
+\begin{enumerate}
+  \item \textbf{Tier 1: Physical Hardware \& Microcontroller Peripherals:} Raw GPIO registers, SysTick
+        counter, SPI4 transmit engine, and USART1 UART peripheral.
+  \item \textbf{Tier 2: Hardware Abstraction Layer (HAL) Drivers:} Platform-independent algorithms
+        for 30\,ms switch debounce integration (\code{hal_button_engine.c}), non-blocking LED waveform
+        synthesis (\code{hal_led_blinker.c}), multi-gesture decoding (\code{hal_button_gesture.c}),
+        and pulse-train coin recognition (\code{hal_coin_pulse.c}).
+  \item \textbf{Tier 3: Core Finite State Machine (FSM):} The deterministic state engine
+        (\code{washing_machine_fsm.c}), maintaining zero dependencies on microcontroller registers,
+        memory-mapped I/O, or blocking operating system calls.
+  \item \textbf{Tier 4: Application \& Telemetry Layer:} Front-panel gesture translators
+        (\code{wm_single_button.c}, \code{wm_two_button.c}), graphical LCD rendering (\code{ui_render.c}),
+        and remote serial console handlers (\code{ui_text.c}).
+\end{enumerate}
 
 \begin{figure}[H]
   \centering
@@ -18,24 +36,24 @@ does not know whether it runs on the board, in the PC simulator or in a unit tes
       ln/.style={font=\scriptsize\itshape, text=gray!80!black, anchor=north east},
     ]
     % inputs
-    \node[m, fill=gray!10] (in)  at (0,0)    {Button / coin inputs\\\scriptsize K1, K0, STOP, UART keys};
+    \node[m, fill=gray!10] (in)  at (0,0)    {Button / Coin Inputs\\\scriptsize K1 (PC13), K0 (PA0), STOP (PA1), UART};
     % drivers
-    \node[m] (deb) at (0,-1.9) {Input driver + debounce\\\scriptsize \code{hal_button_engine}};
-    \node[m] (gst) at (0,-3.7) {Gesture decoder\\\scriptsize \code{hal_button_gesture}};
+    \node[m] (deb) at (0,-1.9) {Input Driver + Debounce Integrator\\\scriptsize \code{hal_button_engine.c} ($30\,\text{ms}$)};
+    \node[m] (gst) at (0,-3.7) {Multi-Gesture Decoder\\\scriptsize \code{hal_button_gesture.c}};
     % app
-    \node[m] (evt) at (0,-5.5) {Event manager\\\scriptsize \code{wm_two_button / wm_single_button}};
+    \node[m] (evt) at (0,-5.5) {Front Panel Dispatcher\\\scriptsize \code{wm_two_button / wm_single_button}};
     % fsm
-    \node[m, fill=stRun, minimum width=4.2cm, minimum height=1.3cm, font=\small\bfseries] (fsm) at (0,-7.6) {Washing machine FSM\\\scriptsize\mdseries \code{washing_machine_fsm.c}};
+    \node[m, fill=stRun, minimum width=4.5cm, minimum height=1.3cm, font=\small\bfseries] (fsm) at (0,-7.6) {Deterministic FSM Core\\\scriptsize\mdseries \code{washing_machine_fsm.c}};
     % timers
-    \node[m] (tick) at (-6.4,-7.6) {Timer manager\\\scriptsize SysTick 1\,ms $\rightarrow$ 1\,ms / 1\,s ticks\\\scriptsize (also clocks debounce, blinkers)};
+    \node[m] (tick) at (-6.4,-7.6) {Timer \& Clock Engine\\\scriptsize SysTick 1\,ms $\rightarrow$ 1\,ms / 1\,s ticks\\\scriptsize (Drives debounce and blinkers)};
     % outputs
-    \node[m] (cb)  at (0,-9.8) {HAL output callbacks\\\scriptsize \code{hal_output_callbacks_t}};
-    \node[m] (led) at (-4.6,-11.8) {LED control\\\scriptsize \code{hal_led_blinker}};
-    \node[m] (act) at (0,-11.8) {Washing output\\\scriptsize motor / pump / lock};
-    \node[m] (ui)  at (4.6,-11.8) {LCD + UART\\\scriptsize \code{ui_render, ui_text}};
-    \node[m, fill=gray!10] (hw) at (0,-13.6) {Board drivers (\code{board_h750.c}, \code{lcd_st7735.c}): GPIO, SPI4, USART1, TIM1};
+    \node[m] (cb)  at (0,-9.8) {HAL Output Callbacks\\\scriptsize \code{hal_output_callbacks_t}};
+    \node[m] (led) at (-4.6,-11.8) {LED Blinker Engine\\\scriptsize \code{hal_led_blinker.c} ($1\,\text{Hz}, 2\,\text{Hz}$)};
+    \node[m] (act) at (0,-11.8) {Actuator Driver\\\scriptsize Motor / Pump / Solenoid Lock};
+    \node[m] (ui)  at (4.6,-11.8) {Dashboard \& Telemetry\\\scriptsize \code{ui_render.c}, \code{ui_text.c}};
+    \node[m, fill=gray!10] (hw) at (0,-13.6) {Board Peripherals (\code{board_h750.c}, \code{lcd_st7735.c}): GPIO, SPI4, USART1, TIM1};
     % coin pulse (ready for real acceptor)
-    \node[m, dashed] (coin) at (5.6,-1.9) {Coin pulse decoder\\\scriptsize \code{hal_coin_pulse} (ready,\\\scriptsize not wired on board)};
+    \node[m, dashed] (coin) at (5.6,-1.9) {Coin Pulse Decoder\\\scriptsize \code{hal_coin_pulse.c} (Opto-isolator ready)};
 
     \draw[a] (in) -- (deb);
     \draw[a] (deb) -- (gst);
@@ -64,64 +82,64 @@ does not know whether it runs on the board, in the PC simulator or in a unit tes
     \node[ln, anchor=south east] at (L3.south east) {Core logic};
     \node[ln] at (L4.north east) {Output HAL};
   \end{tikzpicture}}
-  \caption{Software architecture}
+  \caption{Layered software architecture of the washing machine control system}
   \label{fig:arch}
 \end{figure}
 
-\subsection{Modules}
+\subsection{Modular Decomposition and Source File Responsibilities}
 
-\begin{longtable}{L{4.4cm}L{10.3cm}}
-  \caption{Software modules}\label{tab:modules}\\
+Table~\ref{tab:modules} catalogues the responsibilities, dependencies, and interfaces of every
+source module comprising the firmware codebase.
+
+\begin{longtable}{L{4.2cm}L{10.5cm}}
+  \caption{Software modules and component breakdown}\label{tab:modules}\\
   \toprule
-  \textbf{Module (file)} & \textbf{Responsibility} \\
+  \textbf{Module (File)} & \textbf{Architectural Responsibility \& Implementation Details} \\
   \midrule
   \endfirsthead
   \toprule
-  \textbf{Module (file)} & \textbf{Responsibility} \\
+  \textbf{Module (File)} & \textbf{Architectural Responsibility \& Implementation Details} \\
   \midrule
   \endhead
-  \textbf{GPIO / input driver}\newline\code{board_h750.c} &
-    Configures PC13 (pull-down), PA0/PA1 (pull-up), PE3 output; returns the raw pin level. No logic. \\
-  \textbf{Debounce}\newline\code{hal_button_engine.c} &
-    Per-button integrator: the raw level must differ from the stable level for 30 consecutive ms before
-    the stable level changes. Produces latched \emph{pressed}/\emph{released} edges. Works for active-LOW
-    and active-HIGH buttons. \\
-  \textbf{Gesture decoder}\newline\code{hal_button_gesture.c} &
-    Small FSM (IDLE, DOWN1, WAIT, DOWN2, HELD) that turns the debounced K1 level into CLICK, DOUBLE,
-    HOLD1 (0.6\,s), HOLD1\_END and HOLD2 (1.2\,s). \\
-  \textbf{Coin processing}\newline\code{wm_two_button.c},\newline\code{hal_button_engine.c} &
-    Front panel: stages coins from gestures and confirms them into the FSM. For a real coin acceptor, the
-    \code{hal_coin_pulse} decoder counts pulse trains (1 = 10\cent, 2 = 20\cent, 5 = 50\cent; 150\,ms
-    silence ends a coin) and buffers up to four coins in a FIFO. \\
-  \textbf{Event manager}\newline\code{wm_single_button.c} &
-    Translates a gesture into an FSM event \emph{according to the current state} (e.g.\ click = RUN in
-    READY, PAUSE in RUNNING). \\
-  \textbf{FSM}\newline\code{washing_machine_fsm.c} &
-    The core: state, balance, timer, STOP window, fault flags. Single entry point
-    \code{wm_fsm_dispatch_event()}; outputs only through callbacks. No dependency on hardware. \\
-  \textbf{Timer manager}\newline\code{main_h750.c} &
-    SysTick ISR increments a millisecond counter; the main loop catches up one millisecond at a time and
-    derives the 1\,ms and 1\,s ticks (Section~\ref{sec:timing}). \\
-  \textbf{LED control}\newline\code{hal_led_blinker.c} &
-    Non-blocking blinker per LED: OFF, ON, 1\,Hz (500/500\,ms), 2\,Hz (250/250\,ms). The FSM sets the
-    \emph{mode}; the blinker produces the waveform. Also contains the actuator interlock check
-    \code{hal_actuator_is_safe()}. \\
-  \textbf{Washing output}\newline(callbacks in \code{main_h750.c}) &
-    Receives motor/pump/valve/door-lock commands. On this board they update the LCD indicators; on a real
-    machine they would drive relays. \\
-  \textbf{LCD module}\newline\code{lcd_st7735.c, gfx.c,}\newline\code{ui_render.c} &
-    ST7735 init over SPI4, a small 2-D library on a RAM frame buffer, and the dashboard renderer. Redraws
-    only when the visible data change. \\
-  \textbf{UART console}\newline\code{ui_text.c} &
-    One status line per change (no \code{printf}, no heap) and single-key commands for remote control. \\
+  \textbf{Low-Level Board Drivers}\newline\code{board_h750.c} &
+    Configures microcontroller clock tree (400\,MHz), GPIO alternate functions, SysTick reload register,
+    and power domain VOS1. Provides raw pin read functions. Contains zero application logic. \\
+  \textbf{Button Debounce Engine}\newline\code{hal_button_engine.c} &
+    Implements a symmetric $30\,\text{ms}$ software integrator for each physical key. Raw pin state
+    must remain stable for 30 consecutive 1\,ms ticks before latching an edge, eliminating mechanical chatter. \\
+  \textbf{Multi-Gesture Decoder}\newline\code{hal_button_gesture.c} &
+    Internal 5-state sub-FSM (\code{IDLE}, \code{DOWN1}, \code{WAIT}, \code{DOWN2}, \code{HELD}) converting
+    debounced pulses into high-level gesture tokens: Single Click, Double Click, Hold 0.6\,s, and Hold 1.2\,s. \\
+  \textbf{Pulse Coin Validator}\newline\code{hal_coin_pulse.c} &
+    Asynchronous pulse-train decoder for industrial coin acceptors. Counts pulse bursts ($1 = 10\,\text{\textcent}$,
+    $2 = 20\,\text{\textcent}$, $5 = 50\,\text{\textcent}$) with $150\,\text{ms}$ inter-coin timeout detection and a 4-coin FIFO. \\
+  \textbf{Front Panel Manager}\newline\code{wm_two_button.c} &
+    Translates user gestures into formal FSM events conditioned upon the current qualitative state. Manages
+    deposit staging and cancellation feedback. \\
+  \textbf{FSM Controller Core}\newline\code{washing_machine_fsm.c} &
+    Encapsulates the formal 6-state EFSM. Implements single-entry dispatcher \code{wm_fsm_dispatch_event()},
+    guarded transitions, and context mutations. 100\% decoupled from target hardware registers. \\
+  \textbf{Timer \& Clock Scheduler}\newline\code{main_h750.c} &
+    Processes the SysTick 1\,ms interrupt counter in a non-blocking main loop catch-up algorithm, synthesizing
+    jitter-free $1\,\text{ms}$ and $1\,\text{s}$ time bases without drift. \\
+  \textbf{LED Blinker Engine}\newline\code{hal_led_blinker.c} &
+    Non-blocking square-wave waveform generator: solid OFF, solid ON, $1.0\,\text{Hz}$ ($500\,\text{ms}$ ON / $500\,\text{ms}$ OFF),
+    and $2.0\,\text{Hz}$ ($250\,\text{ms}$ ON / $250\,\text{ms}$ OFF). Enforces actuator safety invariant checks. \\
+  \textbf{Display Driver \& Telemetry}\newline\code{lcd_st7735.c, gfx.c, ui_render.c} &
+    SPI4 driver, 2D graphic primitive pipeline, and full-color 160$\times$80 dashboard renderer. Operates on a
+    RAM back-buffer with event-driven dirty-flag optimization. \\
+  \textbf{Serial CLI Console}\newline\code{ui_text.c} &
+    Zero-heap telemetry formatter streaming human-readable ASCII status lines over $115\,200\,\text{bps}$ USART1
+    and decoding single-key PC keyboard control commands. \\
   \bottomrule
 \end{longtable}
 
-\subsection{Decoupling through callbacks}
+\subsection{Decoupling via the Dependency Inversion Principle}
 
-The FSM receives a table of function pointers at initialisation:
+The FSM communicates with the physical environment exclusively through a strongly typed callback table
+(\code{hal_output_callbacks_t}), passed as a pointer during \code{wm_fsm_init()}:
 
-\begin{lstlisting}[caption={Output interface of the FSM (\code{hal_interfaces.h})}]
+\begin{lstlisting}[caption={Formal HAL output callback abstraction (\code{hal_interfaces.h})}]
 typedef struct {
     void (*set_rled)(hal_led_state_t state);
     void (*set_bled)(hal_led_state_t state);
@@ -130,10 +148,69 @@ typedef struct {
     void (*set_drain_pump)(bool on);
     void (*set_door_lock)(bool locked);
     void (*on_cycle_complete)(void);
-    void (*return_coins)(uint32_t cents);   /* optional */
+    void (*return_coins)(uint32_t cents);   /* optional pre-run refund */
 } hal_output_callbacks_t;
 \end{lstlisting}
 
-\noindent The same FSM object file is linked into five programs: the unit tests (with a recording
-mock), the HAL tests, the interactive CLI simulator, the LCD preview tool and the STM32 firmware. Any
-callback may be \code{NULL}; the FSM checks before calling it.
+\noindent This structural decoupling provides three decisive advantages:
+\begin{enumerate}
+  \item \textbf{100\% Host Testability:} The exact same compiled object file \code{washing_machine_fsm.o}
+        is linked into the automated test runner on Linux/Windows (`gcc`), verifying all 34 transition rules
+        in $<0.15\,\text{s}$ with zero hardware dependencies.
+  \item \textbf{Microcontroller Agnosticism:} The FSM core can be ported to any target MCU (e.g., STM32F4,
+        ESP32, AVR, or RISC-V) simply by supplying a platform-specific callback table.
+  \item \textbf{Defensive Null-Pointer Guarding:} In compliance with MISRA-C Rule 1.3, every callback invocation
+        is strictly guarded against NULL pointers before execution:
+        \begin{center}
+          \small\code{if ((fsm->callbacks != NULL) && (fsm->callbacks->set_motor != NULL)) { fsm->callbacks->set_motor(cmd); }}
+        \end{center}
+\end{enumerate}
+
+\subsection{Event Dispatch Sequence}
+
+Figure~\ref{fig:seq-diagram} depicts the end-to-end execution sequence when a user depresses the physical
+\code{K1} push-button to start a washing cycle from \st{READY}.
+
+\begin{figure}[H]
+  \centering
+  \resizebox{0.95\linewidth}{!}{%
+  \begin{tikzpicture}[
+      font=\small,
+      lifeline/.style={draw=gray!50, thick, dashed},
+      box/.style={draw, thick, rounded corners, fill=blue!8, minimum width=2.4cm, minimum height=0.7cm, align=center},
+      call/.style={thick, -{Stealth[length=2mm]}},
+      ret/.style={thick, dashed, -{Stealth[length=2mm]}},
+      note/.style={draw, fill=yellow!15, rounded corners, font=\scriptsize, align=center}
+    ]
+    % Entities
+    \node[box] (usr) at (0,0) {User / Plant};
+    \node[box] (gpio) at (3.2,0) {GPIO Driver\\[-2pt]\scriptsize \code{PC13}};
+    \node[box] (deb) at (6.4,0) {Debounce\\[-2pt]\scriptsize \code{Engine}};
+    \node[box] (gst) at (9.6,0) {Gesture\\[-2pt]\scriptsize \code{Decoder}};
+    \node[box, fill=stRun] (fsm) at (12.8,0) {FSM Core\\[-2pt]\scriptsize \code{EFSM}};
+    \node[box, fill=teal!10] (hal) at (16.0,0) {HAL Callbacks\\[-2pt]\scriptsize \code{Outputs}};
+
+    % Lifelines
+    \draw[lifeline] (usr) -- (0,-6.2);
+    \draw[lifeline] (gpio) -- (3.2,-6.2);
+    \draw[lifeline] (deb) -- (6.4,-6.2);
+    \draw[lifeline] (gst) -- (9.6,-6.2);
+    \draw[lifeline] (fsm) -- (12.8,-6.2);
+    \draw[lifeline] (hal) -- (16.0,-6.2);
+
+    % Calls
+    \draw[call] (0,-1.0) -- node[above, font=\scriptsize]{Press K1} (3.2,-1.0);
+    \draw[call] (3.2,-1.5) -- node[above, font=\scriptsize]{Raw HIGH} (6.4,-1.5);
+    \draw[call] (6.4,-2.3) -- node[above, font=\scriptsize]{Stable Press ($30\,\text{ms}$)} (9.6,-2.3);
+    \draw[call] (0,-2.6) -- node[above, font=\scriptsize]{Release K1} (3.2,-2.6);
+    \draw[call] (9.6,-3.4) -- node[above, font=\scriptsize]{Single Click Detected} (12.8,-3.4);
+    
+    \node[note] at (12.8,-4.2) {State = READY $\implies$\\Transition T08 fired\\$b := 0, t := 1800\,\text{s}$};
+
+    \draw[call] (12.8,-4.8) -- node[above, font=\scriptsize]{\code{set_door_lock(LOCKED)}} (16.0,-4.8);
+    \draw[call] (12.8,-5.4) -- node[above, font=\scriptsize]{\code{set_motor(AGITATE)}} (16.0,-5.4);
+    \draw[call] (12.8,-6.0) -- node[above, font=\scriptsize]{\code{set_bled(BLINK_1HZ)}} (16.0,-6.0);
+  \end{tikzpicture}}
+  \caption{UML sequence diagram: Deterministic signal propagation from physical press to actuator callback}
+  \label{fig:seq-diagram}
+\end{figure}

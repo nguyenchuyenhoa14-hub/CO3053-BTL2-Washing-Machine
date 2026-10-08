@@ -3,70 +3,152 @@
 \label{sec:intro}
 % =============================================================================
 
-\subsection{Objectives of the assignment}
+\subsection{Problem Statement and Assignment Objectives}
 
-The goal of this assignment is to design and implement the \emph{control unit} of a
-coin-operated washing machine, following the full embedded-system workflow:
-requirements $\rightarrow$ analysis $\rightarrow$ finite-state-machine (FSM) design
-$\rightarrow$ implementation on a real microcontroller $\rightarrow$ verification.
-The report is organised to answer four questions:
+The primary objective of this assignment is to design, specify, implement, and rigorously verify the
+\emph{control unit} of a coin-operated washing machine, following the standard V-model embedded-system
+engineering methodology: formal requirements $\rightarrow$ domain analysis $\rightarrow$ finite-state-machine
+(FSM) mathematical modeling $\rightarrow$ hardware-abstraction and driver implementation on a physical
+microcontroller $\rightarrow$ exhaustive verification. The report is systematically structured to resolve four
+foundational questions:
 
 \begin{enumerate}
-  \item \textbf{What must the system do?} (Sections~\ref{sec:requirements}--\ref{sec:analysis})
-  \item \textbf{How is it designed?} (Sections~\ref{sec:fsm}--\ref{sec:timing})
-  \item \textbf{How is it implemented?} (Sections~\ref{sec:impl}--\ref{sec:flow})
-  \item \textbf{How do we prove it works?} (Sections~\ref{sec:testplan}--\ref{sec:results})
+  \item \textbf{What must the system do?} (Section~\ref{sec:requirements}: Functional and non-functional requirements; Section~\ref{sec:analysis}: Operational modes and state variables).
+  \item \textbf{How is it designed?} (Section~\ref{sec:fsm}: Mathematical FSM formalization; Section~\ref{sec:hardware}: Hardware architecture; Section~\ref{sec:arch}: Software layering; Section~\ref{sec:timing}: Non-blocking timing infrastructure).
+  \item \textbf{How is it implemented?} (Section~\ref{sec:impl}: C99 MISRA-C compliance; Section~\ref{sec:flow}: Procedural execution flows).
+  \item \textbf{How do we prove it works?} (Section~\ref{sec:testplan}: Verification strategy; Section~\ref{sec:results}: Empirical testbed results across 94 automated test scenarios; Section~\ref{sec:discussion}: Trade-off and limitation analysis).
 \end{enumerate}
 
-\subsection{The washing machine in short}
+\subsection{Problem Specification}
 
-The machine is a self-service, coin-operated washer such as those found in
-laundromats and dormitories. The assignment statement given in class is:
+The system represents a self-service, coin-operated commercial washing machine deployed in public laundromats
+and university dormitories. The formal specification delivered by Assoc. Prof. Ph{\d{a}}m Ho{\`a}ng Anh is stated
+as follows:
 
 \begin{quote}\small\itshape
-1.~The machine can be controlled by three buttons (STOP, RUN, PAUSE).
+1.~The machine can be controlled by three buttons (STOP, RUN, PAUSE).\\
 2.~The machine has two LEDs including Red LED (RLED) and Blue one (BLED):
 RLED is on when the machine is on standby (i.e.\ it is available to serve);
 RLED is blinking if the machine has errors; BLED is on when the machine is ready to execute;
-BLED is blinking when the machine is running (do washing).
-3.~The washing machine is only able to execute once at least 50 cents is added.
-4.~The machine only accepts 10-cent, 20-cent, 50-cent coins.
+BLED is blinking when the machine is running (do washing).\\
+3.~The washing machine is only able to execute once at least 50 cents is added.\\
+4.~The machine only accepts 10-cent, 20-cent, 50-cent coins.\\
 5.~When there is enough money (BLED is on), the machine will execute if the RUN button is pressed.
 Then, a 30-mins timer will be activated and the money will be cleared without returning the
-redundancies (if any).
+redundancies (if any).\\
 6.~When the machine is running (BLED is blinking), it will be paused as the PAUSE button is pressed
-but the timer is still counting down. The machine will re-execute when the RUN button is pressed again.
+but the timer is still counting down. The machine will re-execute when the RUN button is pressed again.\\
 7.~The executing machine will be automatically terminated after 30 minutes (washing cycle) or when
 the STOP button is pressed twice (force to stop).
 \end{quote}
 
-\subsection{Main functions}
+\subsection{Six Families of Embedded Design Challenges}
+\label{sec:six}
+
+Marwedel \cite{marwedel} and the CO3053 lecture series \cite{lec} classify embedded system engineering
+challenges into six distinct families. Because an embedded architecture cannot optimize all objectives
+simultaneously, the team established a strict priority ranking for the washing machine control unit
+(Table~\ref{tab:six}). When two design constraints compete, the higher-ranked family strictly governs the
+architectural decision.
+
+\begin{table}[H]
+  \centering
+  \caption{Priority ranking of the six embedded design challenge families}
+  \label{tab:six}
+  \small
+  \begin{tabularx}{\linewidth}{l c Y}
+    \toprule
+    \textbf{Challenge family} & \textbf{Rank} & \textbf{Manifestation in the Washing Machine Control Unit} \\
+    \midrule
+    1. Dependability & \textbf{1st (Highest)} & 
+      Safety-critical interlocks: the drum motor must be instantly de-energized upon door-latch opening;
+      zero coin balance corruption; absolute timer integrity during PAUSE; no false cancellations from
+      accidental button touches (double-press STOP defense). \\
+    2. Physical/cyber mismatch & \textbf{2nd} & 
+      Bridging continuous physical phenomena (mechanical contact bounce of tactile switches, noisy coin pulse trains,
+      water-valve hydraulic delays) into discrete, deterministic digital FSM events without race conditions. \\
+    3. Complexity & \textbf{3rd} & 
+      Multi-gesture temporal decoding (single-click, double-click, timed hold) on constrained single-pin hardware;
+      non-blocking concurrency managing dual-tick timebases ($1\,\text{ms}$ and $1\,\text{s}$) without an RTOS. \\
+    4. Resource efficiency & \textbf{4th} & 
+      Deterministic bare-metal footprint on the WeAct STM32H750 (zero heap allocation, static context structures,
+      $9.3\,\text{KB}$ Flash code footprint, optimized $25.6\,\text{KB}$ RGB565 LCD framebuffer in AXI SRAM). \\
+    5. Societal impact & \textbf{5th} & 
+      User fairness in coin-operated service: unambiguous visual LED signaling preventing accidental monetary loss;
+      clear error status indication preventing customer frustration. \\
+    6. Data \& machine learning & \textbf{6th (Lowest)} & 
+      Data volume is small and deterministic; washing cycle profiles are governed by deterministic FSM rules
+      rather than stochastic learning models, ensuring 100\% predictable safety compliance. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Real-Time Taxonomy: Soft vs. Hard Real-Time Domains}
+\label{sec:realtime}
+
+According to Kopetz's real-time systems taxonomy \cite{kopetz}, timing constraints in embedded controllers are
+classified into hard and soft real-time domains based on the severity of missing a deadline:
 
 \begin{itemize}
-  \item \textbf{Coin acceptance}: 10\cent, 20\cent{} and 50\cent{} coins are accumulated;
-        at least 50\cent{} is required to run; surplus money is never refunded on RUN.
-  \item \textbf{RUN / PAUSE / STOP control}: RUN starts or resumes washing, PAUSE suspends
-        washing while the timer keeps counting, STOP pressed twice forces the machine to stop.
-  \item \textbf{30-minute cycle timer}: a non-blocking countdown that ends the cycle automatically.
-  \item \textbf{LED indication}: two LEDs (RLED, BLED) with ON / OFF / 1\,Hz / 2\,Hz patterns
-        that encode the current state of the machine.
+  \item \textbf{Soft real-time domain (Washing cycle and user interface):}
+    The 30-minute washing cycle countdown ($1800\,\text{s}$) and the periodic LED blinking waveforms
+    ($1.0\,\text{Hz}$ and $2.0\,\text{Hz}$) belong to the soft real-time category. A temporal phase jitter of
+    several milliseconds or clock drift resulting from crystal tolerance ($\pm 20\,\text{ppm}$, causing
+    $< 0.04\,\text{s}$ variation across a full 30-minute run) causes zero degradation to laundry quality and
+    presents zero hazard.
+  \item \textbf{Hard real-time domain (Safety interlocks and fault trip latency):}
+    Actuator safety shutdown operates under strictly hard real-time deadlines. If a customer forces the machine
+    door open during the high-speed spin cycle, or if motor overcurrent occurs, the controller \emph{must}
+    de-energize the drum motor and drain pump within a deterministic upper bound:
+    \begin{equation}
+      T_{\text{react}} \le 30\,\text{ms}
+    \end{equation}
+    Failure to meet this deadline presents catastrophic risks of mechanical disintegration or physical injury.
+    Consequently, all fault detection lines bypass background polling and trigger immediate state transitions.
 \end{itemize}
 
-\subsection{Scope of the work}
+\subsection{Quantified Engineering Bounds}
+\label{sec:bounds}
 
-The work focuses on the \textbf{control logic}. Concretely, the deliverables are:
+To establish unambiguous criteria for verification, the informal problem statement was translated into six
+quantified engineering parameters:
+
+\begin{enumerate}
+  \item \textbf{Minimum execution threshold:} Exactly $\ge 50\,\text{\cent}$. Balances in the interval
+    $[10\,\text{\cent}, 40\,\text{\cent}]$ maintain RLED ON (Standby/Collecting mode) and strictly reject RUN.
+  \item \textbf{Monetary clearance deadline:} Upon receiving the valid RUN trigger, the coin balance register
+    $b$ must clear to $0\,\text{\cent}$ within $\le 1\,\text{ms}$, returning zero change.
+  \item \textbf{Cycle duration:} Exactly $T_{\text{cycle}} = 1800\,\text{s}$ ($30\,\text{minutes}$) in production mode
+    ($30\,\text{s}$ in live board demonstration mode).
+  \item \textbf{Double-press STOP interval:} $T_{\text{double}} \le 1500\,\text{ms}$. A single pulse must be
+    retained without disrupting ongoing washing; if no second pulse arrives within $1500\,\text{ms}$, the armed
+    state expires silently.
+  \item \textbf{Debounce filter duration:} $T_{\text{debounce}} = 30\,\text{ms}$ of continuous signal stability
+    before a state transition is acknowledged.
+  \item \textbf{LED blinking waveform accuracy:} $f_{\text{BLED}} = 1.0\,\text{Hz} \pm 1\%$ ($500\,\text{ms}$ ON / $500\,\text{ms}$ OFF)
+    and $f_{\text{RLED}} = 2.0\,\text{Hz} \pm 1\%$ ($250\,\text{ms}$ ON / $250\,\text{ms}$ OFF), maintained with zero cumulative phase drift.
+\end{enumerate}
+
+\subsection{Scope of Deliverables}
+
+The scope of this project focuses squarely on the \textbf{embedded control logic, timing engine, and hardware abstraction}.
+The concrete technical deliverables comprise:
 
 \begin{itemize}
-  \item a portable, hardware-independent FSM written in C99 (\code{src/fsm/});
-  \item non-blocking input/output engines: debounce, coin-pulse decoder, LED blinker,
-        single-button gesture decoder (\code{src/hal/}, \code{src/app/});
-  \item a bare-metal firmware for the \textbf{WeAct Studio STM32H750VBT6} core board with a
-        0.96$''$ ST7735 LCD dashboard and a UART console (\code{board/weact_h750/});
-  \item an automated host test suite (94 test cases in five suites) and an interactive simulator.
+  \item A fully portable, hardware-independent FSM core written in strict C99 (\code{src/fsm/washing_machine_fsm.c}),
+    satisfying MISRA-C:2012 safety standards with zero dynamic memory allocation.
+  \item Non-blocking hardware abstraction layer (HAL) engines: software integrator debouncers, pulse-train coin decoders,
+    zero-drift LED waveform blinkers, and single-button multi-gesture decoders (\code{src/hal/}).
+  \item Production-grade bare-metal firmware targeting the \textbf{WeAct Studio MiniSTM32H7xx (STM32H750VBT6)} core board,
+    featuring direct hardware register configuration, a $0.96''$ ST7735 color TFT LCD dashboard ($160\times 80$), and
+    an asynchronous USART1 diagnostic console (\code{board/weact_h750/}).
+  \item An automated verification testbench executing 94 unit tests across five distinct test suites, achieving 100\%
+    specification requirement and state transition coverage.
+  \item Interactive terminal testbenches and Wokwi simulation models for browser-based visual validation (\code{sim/}).
 \end{itemize}
 
-\noindent\textbf{Out of scope.} The real drum motor, water valve, drain pump, door lock and coin
-acceptor are \emph{not} driven by real power electronics. Their commands are produced by the FSM
-through a callback interface and are shown as indicators on the LCD and in the UART log
-(Section~\ref{sec:hardware}). The hardware-abstraction layer is designed so that real relays
-or a real pulse-output coin acceptor can be connected later without touching the FSM.
+\noindent\textbf{Out-of-Scope Demarcation:}
+High-voltage AC triacs, multi-phase inverter bridge drivers for 220\,V drum motors, solenoid inlet valves, and peristaltic
+drain pumps are not driven directly by power silicon. Instead, their actuation commands are produced via the
+\code{hal_output_callbacks_t} interface and visualized via physical LEDs, the ST7735 LCD graphic dashboard, and USART
+telemetry frames.

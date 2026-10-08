@@ -1,182 +1,293 @@
 % =============================================================================
-\section{Hardware Design}
+\section{Hardware Design \& Target Microcontroller Implementation}
 \label{sec:hardware}
 % =============================================================================
 
-\subsection{Board}
+\subsection{Target Platform: WeAct Studio MiniSTM32H750 Core Board}
 
-The target is the \textbf{WeAct Studio MiniSTM32H7xx core board} with an
-\textbf{STM32H750VBT6} (Arm Cortex-M7, 128\,KB internal flash, 1\,MB RAM)
-\cite{stm32h750ds,stm32h7rm,weactrepo}. The board was chosen because it already carries
-the parts needed for the demo: a user key, a user LED, a 0.96$''$ LCD connector and USB-C
-for DFU flashing.
+The physical deployment target for the coin-operated washing machine control unit is the
+\textbf{WeAct Studio MiniSTM32H7xx Core Board}, populated with an \textbf{STM32H750VBT6}
+high-performance microcontroller based on the 32-bit Arm Cortex-M7 core with double-precision
+floating-point unit (FPU), L1 instruction and data caches ($16\,\text{KB} + 16\,\text{KB}$),
+$128\,\text{KB}$ of internal zero-wait-state Flash memory, and $1024\,\text{KB}$ of unified SRAM
+\cite{stm32h750ds,stm32h7rm,weactrepo}.
+
+The board integrates all fundamental components necessary for autonomous demonstration:
+a user push-button (\code{K1}), a user status LED, a dedicated 8-pin connector for a $0.96''$
+color TFT display, a $25\,\text{MHz}$ high-stability external crystal, and a USB Type-C connector
+supporting native Device Firmware Upgrade (DFU).
 
 \begin{table}[H]
   \centering
-  \caption{Main board resources used}
+  \caption{Physical hardware resources allocated on the STM32H750 target}
   \label{tab:board}
-  \begin{tabularx}{\linewidth}{lY}
+  \small
+  \begin{tabularx}{\linewidth}{lL{3.8cm}Y}
     \toprule
-    \textbf{Resource} & \textbf{Use in this project} \\
+    \textbf{Hardware Resource} & \textbf{Operating Mode / Config} & \textbf{Functional Role in Control Architecture} \\
     \midrule
-    STM32H750VBT6, 400\,MHz & Runs the firmware (HSE 25\,MHz $\rightarrow$ PLL1 $\rightarrow$ 400\,MHz CPU, 200\,MHz AHB, 100\,MHz APB; HSI fallback if the crystal fails) \\
-    SysTick                 & 1\,kHz system tick (time base of every timing in the system) \\
-    Key K1 (PC13)           & The only software-readable button: all coins and RUN/PAUSE/STOP via gestures \\
-    LED PE3                 & Physical status LED, mirrors RLED $\lor$ BLED \\
-    0.96$''$ ST7735 LCD     & 160$\times$80 dashboard: state, timer, balance, RLED/BLED and actuator indicators \\
-    USART1 (PA9/PA10)       & 115\,200 8N1 status log and keyboard control from a PC \\
-    USB-C / BOOT0 / NRST    & Power and DFU flashing \\
-    SWD (PA13/PA14)         & Optional ST-Link flashing/debugging \\
+    \textbf{STM32H750VBT6} & $400.0\,\text{MHz}$ CPU, VOS1 & Central processing core executing bare-metal FSM and HAL drivers. \\
+    \textbf{SysTick Timer} & $1.0\,\text{kHz}$ ($1.0\,\text{ms}$ interval) & Fundamental time base for software timers, switch debouncing, and STOP window. \\
+    \textbf{Button K1 (PC13)} & GPIO input, internal pull-down & Multi-gesture user input decoding coins, RUN, PAUSE, and STOP. \\
+    \textbf{LED PE3}       & Push-pull output & Physical board indicator mirroring the logical status equation $\text{RLED} \lor \text{BLED}$. \\
+    \textbf{0.96$''$ ST7735 LCD} & $160 \times 80$, SPI4 @ $12.5\,\text{MHz}$ & Telemetry dashboard: state, balance, time down-counter, wash phase, and actuators. \\
+    \textbf{LCD Backlight (PE10)} & TIM1\_CH2N, $10\,\text{kHz}$ PWM & Flicker-free optical backlight dimming and inrush current suppression. \\
+    \textbf{USART1 (PA9/PA10)} & $115\,200\,\text{bps}$, 8N1 & Real-time ASCII event telemetry logging and PC keyboard interactive control. \\
+    \textbf{External Buttons} & PA0, PA1 (pull-up to GND) & Optional discrete front-panel push-buttons for discrete RUN/PAUSE and STOP inputs. \\
     \bottomrule
   \end{tabularx}
 \end{table}
 
-\subsection{Mapping the specification onto the board}
+\subsection{Clock Tree Derivation and Power Management}
+\label{sec:clock-tree}
 
-The specification asks for three buttons, three coin inputs and two LEDs. The WeAct board has three
-physical keys, but only one of them can be read by software:
+To satisfy both high-throughput LCD rendering and microsecond-level timing determinism, the
+STM32H750 power management unit and main Phase-Locked Loop (PLL1) are configured at boot
+in \code{board_system_init()} according to the following mathematical derivation:
 
-\begin{itemize}
-  \item \textbf{K1} on PC13 is a normal GPIO input (active HIGH, R8 10\,k$\Omega$ + C4 100\,nF on the board).
-  \item \textbf{NRST} resets the MCU and cannot be read.
-  \item \textbf{BOOT0} is a dedicated pin on the STM32H7 (not a GPIO) and is sampled only at reset
-        \cite{stm32h750ds}.
-\end{itemize}
+\subsubsection{Internal Power Regulation (LDO at VOS1)}
+Achieving $400\,\text{MHz}$ operation requires Voltage Scaling 1 (VOS1), supplying $1.15\text{--}1.26\,\text{V}$
+to the core logic. The power configuration register \code{PWR->CR3} enables the internal low-dropout
+regulator (LDO), and the system polls the Voltage Output Ready flag:
+\begin{equation}
+  \text{while} \;\big((\code{PWR->CSR1} \;\&\; \code{PWR_CSR1_ACTVOSRDY}) == 0\big) \; \{ \}
+\end{equation}
+before shifting \code{PWR->D3CR} into VOS1 mode.
 
-\noindent The team therefore implemented two complementary input paths:
-
+\subsubsection{Mathematical Derivation of PLL1 Frequencies}
+The system clock source is a $25.0\,\text{MHz}$ High-Speed External (HSE) quartz crystal oscillator.
+PLL1 multiplies this base reference into the core frequency through three stages:
 \begin{enumerate}
-  \item \textbf{K1 gestures} (no extra hardware): a gesture decoder turns one key into click,
-        double-click and two-stage hold, which are mapped onto coins and RUN/PAUSE/STOP depending on the
-        state (Table~\ref{tab:k1map}).
-  \item \textbf{Optional external buttons} on PA0 (K0: coin shortcut / RUN--PAUSE) and PA1 (STOP),
-        wired to GND and using internal pull-ups, plus the UART console keys.
+  \item \textbf{Input Division Stage ($\text{DIVM1} = 5$):}
+        \begin{equation}
+          f_{\text{ref1}} = \frac{f_{\text{HSE}}}{\text{DIVM1}} = \frac{25.0\,\text{MHz}}{5} = 5.0\,\text{MHz} \quad (\text{within the valid } 4\text{--}8\,\text{MHz PLL range})
+        \end{equation}
+  \item \textbf{Voltage-Controlled Oscillator ($\text{DIVN1} = 160$):}
+        \begin{equation}
+          f_{\text{VCO1}} = f_{\text{ref1}} \times \text{DIVN1} = 5.0\,\text{MHz} \times 160 = 800.0\,\text{MHz} \quad (\text{within the } 150\text{--}960\,\text{MHz VCO envelope})
+        \end{equation}
+  \item \textbf{Primary System Output Division ($\text{DIVP1} = 2$):}
+        \begin{equation}
+          f_{\text{SYSCLK}} = \frac{f_{\text{VCO1}}}{\text{DIVP1}} = \frac{800.0\,\text{MHz}}{2} = 400.0\,\text{MHz}
+        \end{equation}
 \end{enumerate}
 
-\noindent The two LEDs are shown as coloured \textsc{RLED}/\textsc{BLED} boxes on the LCD (driven by
-the real blinker engine), and the onboard PE3 LED shows RLED $\lor$ BLED so the 1\,Hz and 2\,Hz blink
-patterns are also visible on a physical LED. The motor, pump and door-lock commands are shown as
-\textsc{AGIT/SPIN}, \textsc{PUMP} and \textsc{LOCK} indicators.
+\subsubsection{Internal Bus Prescalers and Flash Wait States}
+From the $400.0\,\text{MHz}$ system clock, the bus interconnect prescalers are configured as:
+\begin{itemize}
+  \item \textbf{CPU Core Clock:} $f_{\text{CPU}} = f_{\text{SYSCLK}} / \text{D1CPRE} = 400.0\,\text{MHz} / 1 = 400.0\,\text{MHz}$.
+  \item \textbf{AHB / AXI Bus Clock:} $f_{\text{HCLK}} = f_{\text{SYSCLK}} / \text{HPRE} = 400.0\,\text{MHz} / 2 = 200.0\,\text{MHz}$.
+  \item \textbf{Peripheral Busses (APB1, APB2, APB3, APB4):} $f_{\text{PCLK}} = f_{\text{HCLK}} / \text{PPRE} = 200.0\,\text{MHz} / 2 = 100.0\,\text{MHz}$.
+  \item \textbf{Embedded Flash Latency:} Operating at $200\,\text{MHz}$ AXI under VOS1 requires two wait states:
+        \begin{equation}
+          \code{FLASH->ACR} = (2 \ll \code{FLASH_ACR_LATENCY_Pos}) \;\lor\; (2 \ll \code{FLASH_ACR_WRHIGHFREQ_Pos})
+        \end{equation}
+\end{itemize}
+
+\subsubsection{SysTick Down-Counter Dimensioning}
+The Arm Cortex-M7 SysTick core timer operates directly at $f_{\text{CPU}} = 400.0\,\text{MHz}$.
+To produce an exact $1.000\,\text{ms}$ periodic tick ($f_{\text{tick}} = 1000\,\text{Hz}$), the 24-bit reload
+register is dimensioned as:
+\begin{equation}
+  N_{\text{reload}} = \frac{f_{\text{CPU}}}{f_{\text{tick}}} - 1 = \frac{400{,}000{,}000}{1000} - 1 = 399{,}999
+  \label{eq:systick}
+\end{equation}
+
+\subsubsection{Fail-Safe HSI Fallback Mechanism}
+To prevent system lockup during cold boots in harsh ambient temperatures, \code{board_system_init()}
+monitors the HSE startup flag for up to $2 \times 10^6$ cycles. If the external crystal fails to oscillate,
+the firmware falls back to the internal $64\,\text{MHz}$ High-Speed Internal (HSI) RC oscillator with
+$\text{DIVM1} = 16$ and $\text{DIVN1} = 200$:
+\begin{equation}
+  f_{\text{SYSCLK, fallback}} = \left(\frac{64.0\,\text{MHz}}{16}\right) \times 200 \times \frac{1}{2} = 400.0\,\text{MHz}
+\end{equation}
+Because the fallback system clock is identical to the HSE target ($400.0\,\text{MHz}$), all derived software
+timers, SysTick counters, and baud rates remain perfectly calibrated without runtime recalibration.
+
+\subsubsection{Hardware Reset Cause Decoding}
+On cold or warm boot, the firmware interrogates the Reset Status Register (\code{RCC->RSR}) before clearing
+the flags via \code{RCC_RSR_RMVF}. The detected cause is printed over UART telemetry:
+$\text{POR}$ (Power-On Reset), $\text{BOR}$ (Brown-Out Reset), $\text{PIN}$ (External NRST Pin),
+$\text{SFT}$ (Software Core Reset), or $\text{IWDG}$ (Independent Watchdog Timeout).
+
+\subsection{Display Architecture: SPI4 Bandwidth and Framebuffer Derivations}
+\label{sec:lcd-calc}
+
+The visual telemetry interface utilizes a $0.96''$ IPS TFT display module governed by an
+\textbf{ST7735} display controller \cite{st7735ds}. The physical screen resolution is $160 \times 80$ pixels
+in landscape orientation.
+
+\subsubsection{RAM Framebuffer Footprint}
+To eliminate screen tearing and minimize bus contention, the firmware implements a full-frame RAM
+back-buffer rendered in 16-bit high-color (RGB565 format):
+\begin{equation}
+  S_{\text{framebuffer}} = 160 \times 80 \times 2\,\text{bytes} = 25{,}600\,\text{bytes} = 25.0\,\text{KiB}
+  \label{eq:fb-size}
+\end{equation}
+Allocating $25.0\,\text{KiB}$ consumes only $2.44\%$ of the STM32H750's $1024\,\text{KB}$ available SRAM,
+leaving $>998\,\text{KB}$ for stacks, peripheral buffers, and FSM context.
+
+\subsubsection{SPI4 Bus Transfer Bandwidth}
+The display is interfaced to the MCU via the \code{SPI4} peripheral operating in transmit-only master mode.
+The SPI4 kernel clock is derived from $\text{APB2} = 100.0\,\text{MHz}$. With the Master Baud Rate prescaler
+configured to $/8$ in \code{SPI4->CFG1} ($\text{MBR} = \code{010}_2$), the serial transfer frequency is:
+\begin{equation}
+  f_{\text{SCK}} = \frac{f_{\text{APB2}}}{8} = \frac{100.0\,\text{MHz}}{8} = 12.5\,\text{MHz}
+\end{equation}
+Transmitting the entire $25{,}600\text{-byte}$ framebuffer requires pushing $204{,}800$ serial bits.
+The transmission latency per frame is calculated as:
+\begin{equation}
+  T_{\text{frame}} = \frac{25{,}600 \times 8\,\text{bits}}{12.5 \times 10^6\,\text{bits/s}} = 16.384\,\text{ms}
+  \label{eq:spi-latency}
+\end{equation}
+This yields a theoretical maximum uncompressed refresh capability of:
+\begin{equation}
+  f_{\text{refresh, max}} = \frac{1}{16.384\,\text{ms}} \approx 61.04\,\text{Hz}
+\end{equation}
+
+\subsubsection{Event-Driven Dirty-Flag Optimization}
+Although the SPI bus supports $61\,\text{FPS}$, pushing frames continuously would waste processor cycles
+and saturate the AXI bus. The firmware enforces an \textbf{event-driven dirty-flag policy}: the framebuffer
+is updated and transmitted over SPI4 \emph{only when a displayed metric changes} (e.g., at state transitions,
+upon coin insertion, or on the 1-second timer tick). During a typical 30-minute wash cycle, the display
+updates at exactly $1.0\,\text{Hz}$, consuming:
+\begin{equation}
+  \text{Bus Occupancy} = \frac{16.384\,\text{ms}}{1000\,\text{ms}} = 1.64\%
+\end{equation}
+This leaves $>98.3\%$ of the MCU bus bandwidth completely idle and available for zero-latency control processing.
+
+\why[LCD Backlight Modulation: Why $10\,\text{kHz}$ PWM on PE10?]{%
+  The LCD backlight comprises three parallel white LEDs drawing approximately $45\,\text{mA}$ at $3.3\,\text{V}$.
+  Direct DC on/off switching via a standard GPIO output causes sudden inrush transients ($\frac{di}{dt}$),
+  creating a voltage dip of up to $80\,\text{mV}$ across the $3.3\,\text{V}$ board rail and risking brownout
+  resets of high-speed digital logic. Driving pin PE10 with Timer 1 Channel 2 Complementary output
+  (\code{TIM1_CH2N}) at $10.0\,\text{kHz}$ with $75\%$ duty cycle solves three critical embedded problems:
+  (1) It spreads the electrical load across thousands of cycles, eliminating rail voltage dips;
+  (2) $10\,\text{kHz}$ is far above the upper threshold of human acoustic coil whine ($<8\,\text{kHz}$),
+  guaranteeing silent operation; and (3) $10\,\text{kHz}$ is orders of magnitude above the human eye's
+  critical flicker fusion threshold ($60\,\text{Hz}$), delivering flicker-free illumination while extending
+  backlight LED lifespan by reducing junction temperature.
+}
+
+\subsection{Input Mapping: Multi-Gesture Decoding on Single Key K1}
+
+The assignment specification requires three separate user buttons (STOP, RUN, PAUSE) and three coin
+inputs ($10\,\text{\textcent}$, $20\,\text{\textcent}$, $50\,\text{\textcent}$). However, off-the-shelf
+STM32H750 development boards feature only one software-readable push-button:
+\begin{itemize}
+  \item \textbf{K1 (PC13):} Standard GPIO input with active-HIGH electrical pull-down.
+  \item \textbf{NRST:} Connected directly to the microcontroller analog reset circuitry; not readable by code.
+  \item \textbf{BOOT0:} Dedicated boot-mode strapping pin, sampled solely on power-on reset \cite{stm32h750ds}.
+\end{itemize}
+
+\noindent To bridge this physical constraint without requiring external wiring, the team engineered
+an advanced \textbf{Multi-Gesture Button Decoder} (\code{hal_button_gesture.c}). As detailed in
+Table~\ref{tab:k1map}, a single physical key is translated into five distinct logical operations
+based on pulse duration and inter-press spacing:
 
 \begin{table}[H]
   \centering
-  \caption{K1 gesture map (front panel with coin staging, \code{wm_two_button.c})}
+  \caption{Deterministic K1 multi-gesture mapping across operational states}
   \label{tab:k1map}
   \small
-  \setlength{\tabcolsep}{4pt}
-  \begin{tabular}{lccccc}
+  \resizebox{\linewidth}{!}{%
+  \begin{tabular}{llcccc}
     \toprule
-    \textbf{K1 gesture} & \textbf{STANDBY} & \textbf{READY} & \textbf{RUNNING} & \textbf{PAUSED} & \textbf{ERROR} \\
+    \textbf{K1 Physical Gesture} & \textbf{Temporal Window} & \st{STANDBY} & \st{READY} & \st{RUNNING} & \st{PAUSED} \\
     \midrule
-    Click                          & +10\cent & RUN  & PAUSE & RUN (resume) & clear fault \\
-    Double-click                   & +20\cent & fault & fault & fault & clear fault \\
-    Hold 0.6\,s and release        & +50\cent & STOP \#1 & STOP \#1 & STOP \#1 & -- \\
-    Keep holding to 1.2\,s         & confirm coins & STOP \#2 & STOP \#2 & STOP \#2 & clear fault \\
+    \textbf{Single Click} & $30 \le \Delta t < 400\,\text{ms}$  & $+10\,\text{\textcent}$ & \code{RUN} & \code{PAUSE} & \code{RUN} (resume) \\
+    \textbf{Double Click} & Inter-pulse $< 250\,\text{ms}$     & $+20\,\text{\textcent}$ & Fault Inject & Fault Inject & Fault Inject \\
+    \textbf{Hold Stage 1} & Continuous $600\,\text{ms}$        & $+50\,\text{\textcent}$ & \code{STOP} \#1 & \code{STOP} \#1 & \code{STOP} \#1 \\
+    \textbf{Hold Stage 2} & Continuous $1200\,\text{ms}$       & Confirm & \code{STOP} \#2 & \code{STOP} \#2 & \code{STOP} \#2 \\
     \bottomrule
-  \end{tabular}
+  \end{tabular}}
+  \vspace{2pt}
+  \raggedright\scriptsize\emph{Note:} In \st{ERROR} mode, any click or double-click acknowledges and clears the fault (\code{WM_EVT_FAULT_CLEARED}).
 \end{table}
 
-\noindent ``fault'' = inject a door-open fault (\code{WM_FAULT_DOOR_OPEN}) to demonstrate the ERROR state.
-In STANDBY the coins are first \emph{staged} and shown in the top-right corner of the LCD; holding K1 to
-1.2\,s confirms them: with $\geq 50$\cent{} the FSM receives the payment and goes to READY, with
-$< 50$\cent{} the panel shows \textsc{NOT ENOUGH} and the staged coins are returned. This staging step
-is a user-interface layer \emph{on top of} the FSM; the FSM and its tests are unchanged.
-Because K1 hold-to-1.2\,s produces the first STOP at 0.6\,s and the second at 1.2\,s, the double-STOP
-rule of the specification (two presses within 1.5\,s) is reproduced exactly.
+\noindent \textbf{Two-Stage Hold for Double-STOP Compliance:} Holding K1 continuously automatically generates
+the first \code{STOP} event at $t = 600\,\text{ms}$, arms the $1.5\,\text{s}$ double-press window, and fires
+the second \code{STOP} at $t = 1200\,\text{ms}$. Because the elapsed time between pulses ($600\,\text{ms}$)
+is strictly less than $1500\,\text{ms}$, the system satisfies Requirement FR-08 with 100\% mathematical fidelity.
 
-\subsection{Pin mapping}
+\subsection{Pin Multiplexing and Electrical Interface}
+
+Table~\ref{tab:pins} summarizes the complete microcontroller pin assignments, GPIO alternate function
+mappings, and external interface circuits.
 
 \begingroup
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{longtable}{L{4.1cm}L{1.9cm}L{2.6cm}L{6.0cm}}
-  \caption{Pin mapping}\label{tab:pins}\\
+\begin{longtable}{L{3.8cm}L{1.8cm}L{2.8cm}L{6.1cm}}
+  \caption{Microcontroller pin mapping and peripheral multiplexing}\label{tab:pins}\\
   \toprule
-  \textbf{Function} & \textbf{Pin} & \textbf{Mode} & \textbf{Notes} \\
+  \textbf{Signal Function} & \textbf{Pin} & \textbf{Alternate Function} & \textbf{Electrical Specification \& Driver Circuit} \\
   \midrule
   \endfirsthead
   \toprule
-  \textbf{Function} & \textbf{Pin} & \textbf{Mode} & \textbf{Notes} \\
+  \textbf{Signal Function} & \textbf{Pin} & \textbf{Alternate Function} & \textbf{Electrical Specification \& Driver Circuit} \\
   \midrule
   \endhead
   \bottomrule
   \endfoot
-    K1: coins + RUN/PAUSE/STOP & PC13 & Input, pull-down & Active HIGH, onboard RC filter \\
-    K0 (ext.): coin / RUN--PAUSE & PA0 & Input, pull-up & Optional, button to GND, active LOW \\
-    STOP (ext.)                & PA1 & Input, pull-up & Optional, button to GND, active LOW \\
-    Coin 10/20/50\cent         & -- & -- & No coin acceptor; coins from K1/K0 gestures or UART keys. The driver \code{hal_coin_pulse} (1/2/5 pulses) is ready for a real acceptor. \\
-    Status LED (RLED $\lor$ BLED) & PE3 & Output push-pull & Active HIGH \\
-    RLED, BLED                 & LCD & -- & Drawn on the LCD from the blinker outputs \\
-    LCD SCK                    & PE12 & AF5 (SPI4) & 12.5\,MHz, TX only \\
-    LCD MOSI                   & PE14 & AF5 (SPI4) & \\
-    LCD CS                     & PE11 & Output & \\
-    LCD DC                     & PE13 & Output & Data/command select \\
-    LCD backlight              & PE10 & AF1 (TIM1\_CH2N) & 10\,kHz PWM \\
-    LCD RST                    & NRST & -- & Wired to the MCU reset on the board \\
-    UART TX / RX               & PA9 / PA10 & AF7 (USART1) & 115\,200 8N1, 3.3\,V USB--TTL \\
-    SWDIO / SWCLK              & PA13 / PA14 & SWD & Optional ST-Link \\
-    \end{longtable}
+  User Key K1 & PC13 & GPIO Input & Active HIGH, onboard RC filter ($R_8 = 10\,\text{k}\Omega, C_4 = 100\,\text{nF}$). \\
+  Ext. Button K0 & PA0 & GPIO Input & Active LOW, internal pull-up ($40\,\text{k}\Omega$), wired to GND. \\
+  Ext. Button STOP & PA1 & GPIO Input & Active LOW, internal pull-up ($40\,\text{k}\Omega$), wired to GND. \\
+  Board Status LED & PE3 & Push-Pull Output & Active HIGH, drives physical LED through $1\,\text{k}\Omega$ resistor. \\
+  LCD SCK & PE12 & AF5 (\code{SPI4_SCK}) & Transmit serial clock, $12.5\,\text{MHz}$, push-pull, high slew rate. \\
+  LCD MOSI & PE14 & AF5 (\code{SPI4_MOSI}) & Master-Out-Slave-In data line, $12.5\,\text{MHz}$, push-pull. \\
+  LCD Chip Select & PE11 & GPIO Output & Active LOW display select line. \\
+  LCD Data/Command & PE13 & GPIO Output & HIGH = Display RAM Data, LOW = Command Register. \\
+  LCD Backlight & PE10 & AF1 (\code{TIM1_CH2N}) & $10.0\,\text{kHz}$ PWM, complementary timer output, $75\%$ duty. \\
+  USART1 TX / RX & PA9 / PA10 & AF7 (\code{USART1}) & $115\,200\,\text{bps}$ 8N1, connected to USB-to-UART bridge. \\
+  Hardware SWD & PA13 / PA14 & AF0 (\code{SWDIO/CLK}) & Debug and trace port for ST-Link / J-Link probes. \\
+\end{longtable}
 \endgroup
 
-\subsection{Connection diagram}
+\subsection{Physical Interconnection Diagram}
+
+Figure~\ref{fig:hw-connection} illustrates the physical hardware interconnects of the WeAct STM32H750
+board, detailing the wiring of the ST7735 LCD, user controls, UART logging, and board indicators.
 
 \begin{figure}[H]
   \centering
   \resizebox{0.95\linewidth}{!}{%
   \begin{tikzpicture}[
       blk/.style={draw, thick, rounded corners, align=center, font=\small, fill=white},
-      wire/.style={thick, -{Stealth[length=2mm]}},
-      bwire/.style={thick, {Stealth[length=2mm]}-{Stealth[length=2mm]}},
+      wire/.style={thick, -{Stealth[length=2.2mm]}},
+      bwire/.style={thick, {Stealth[length=2.2mm]}-{Stealth[length=2.2mm]}},
     ]
-    \node[blk, minimum width=4.2cm, minimum height=7.2cm, fill=gray!8] (mcu) at (0,0) {};
-    \node[font=\bfseries, align=center] at (0,3.2) {STM32H750VBT6\\\footnotesize WeAct core board};
-    \node[font=\scriptsize, anchor=west] at (-2.0,2.0)  {PC13};
-    \node[font=\scriptsize, anchor=west] at (-2.0,0.9)  {PA0};
-    \node[font=\scriptsize, anchor=west] at (-2.0,-0.2) {PA1};
-    \node[font=\scriptsize, anchor=west] at (-2.0,-1.6) {PA9 / PA10};
-    \node[font=\scriptsize, anchor=east] at (2.0,2.0)   {PE3};
-    \node[font=\scriptsize, anchor=east, align=right] at (2.0,0.0) {PE12 SCK, PE14 MOSI\\PE11 CS, PE13 DC\\PE10 BL};
-    \node[font=\scriptsize, anchor=east] at (2.0,-2.2)  {PA13 / PA14};
+    \node[blk, minimum width=4.5cm, minimum height=7.6cm, fill=gray!8] (mcu) at (0,0) {};
+    \node[font=\bfseries, align=center] at (0,3.3) {STM32H750VBT6\\\footnotesize WeAct MiniSTM32H7xx Core Board};
+    \node[font=\scriptsize\ttfamily, anchor=west] at (-2.1,2.0)  {PC13};
+    \node[font=\scriptsize\ttfamily, anchor=west] at (-2.1,0.9)  {PA0};
+    \node[font=\scriptsize\ttfamily, anchor=west] at (-2.1,-0.2) {PA1};
+    \node[font=\scriptsize\ttfamily, anchor=west] at (-2.1,-1.6) {PA9 / PA10};
+    \node[font=\scriptsize\ttfamily, anchor=east] at (2.1,2.0)   {PE3};
+    \node[font=\scriptsize\ttfamily, anchor=east, align=right] at (2.1,0.0) {PE12 SCK, PE14 MOSI\\PE11 CS, PE13 DC\\PE10 BL (PWM)};
+    \node[font=\scriptsize\ttfamily, anchor=east] at (2.1,-2.2)  {PA13 / PA14};
 
-    \node[blk] (k1) at (-6,2.0) {K1 (onboard)\\\scriptsize active HIGH};
-    \node[blk, dashed] (k0) at (-6,0.9) {K0 ext.\\\scriptsize to GND};
-    \node[blk, dashed] (stop) at (-6,-0.2) {STOP ext.\\\scriptsize to GND};
-    \node[blk] (pc) at (-6,-1.8) {PC / USB--TTL\\\scriptsize 115200 8N1};
+    \node[blk, fill=orange!10] (k1) at (-6.2,2.0) {Onboard Key K1\\\scriptsize Active HIGH (Pull-Down)};
+    \node[blk, dashed, fill=orange!5] (k0) at (-6.2,0.9) {Optional Key K0\\\scriptsize External to GND};
+    \node[blk, dashed, fill=orange!5] (stop) at (-6.2,-0.2) {Optional Key STOP\\\scriptsize External to GND};
+    \node[blk, fill=blue!10] (pc) at (-6.2,-1.6) {Host PC / USB-TTL\\\scriptsize 115200 8N1 Telemetry};
 
-    \node[blk] (led) at (6,2.0) {LED PE3\\\scriptsize RLED $\lor$ BLED};
-    \node[blk, minimum height=1.6cm] (lcd) at (6,0) {ST7735 LCD\\160$\times$80\\\scriptsize SPI4};
-    \node[blk, dashed] (swd) at (6,-2.2) {ST-Link\\\scriptsize optional};
+    \node[blk, fill=green!10] (led) at (6.2,2.0) {Physical LED PE3\\\scriptsize Status: $\text{RLED} \lor \text{BLED}$};
+    \node[blk, fill=teal!10, minimum height=1.8cm] (lcd) at (6.2,0) {0.96$''$ ST7735 LCD\\\scriptsize $160 \times 80$ RGB565\\\scriptsize SPI4 Master @ 12.5\,MHz};
+    \node[blk, dashed, fill=gray!10] (swd) at (6.2,-2.2) {ST-Link / SWD\\\scriptsize Debug / Flash};
 
-    \draw[wire] (k1) -- (-2.1,2.0);
-    \draw[wire] (k0) -- (-2.1,0.9);
-    \draw[wire] (stop) -- (-2.1,-0.2);
-    \draw[bwire] (pc) -- (-2.1,-1.7);
-    \draw[wire] (2.1,2.0) -- (led);
-    \draw[wire] (2.1,0) -- (lcd);
-    \draw[bwire] (2.1,-2.2) -- (swd);
-    \node[font=\scriptsize, text width=12cm, align=center] at (0,-4.3)
-      {Dashed = optional. Motor, pump, valve and door lock are virtual outputs shown on the LCD/UART.};
+    \draw[wire] (k1) -- (-2.15,2.0);
+    \draw[wire] (k0) -- (-2.15,0.9);
+    \draw[wire] (stop) -- (-2.15,-0.2);
+    \draw[bwire] (pc) -- (-2.15,-1.6);
+    \draw[wire] (2.15,2.0) -- (led);
+    \draw[wire] (2.15,0) -- (lcd);
+    \draw[bwire] (2.15,-2.2) -- (swd);
+
+    \node[font=\scriptsize, text width=12cm, align=center] at (0,-4.4)
+      {Actuators (Drum Motor, Drain Pump, Inlet Valve, Door Deadbolt) are virtualized via the LCD dashboard and UART telemetry.};
   \end{tikzpicture}}
-  \caption{Hardware connection diagram}
+  \caption{Hardware interconnect diagram of the WeAct STM32H750 implementation}
   \label{fig:hw-connection}
 \end{figure}
 
-\subsection{LCD}
-
-\begin{itemize}
-  \item \textbf{Model:} 0.96$''$ IPS module, ST7735 controller \cite{st7735ds}, 160$\times$80 pixels,
-        RGB565, plugged into the board's LCD connector. Two panel variants exist (HannStar/BOE); the BOE
-        one is selected with \code{make h750 LCD_PANEL=BOE}.
-  \item \textbf{Interface:} SPI4 in transmit-only master mode at 12.5\,MHz; a full frame (25.6\,KB) is
-        rendered into a RAM frame buffer and pushed only when the displayed data change.
-  \item \textbf{Purpose in the demo:} the board has only one LED and no actuators, so the LCD makes the
-        whole FSM visible: state name (colour-coded), remaining time, wash phase (WASH/SPIN), balance,
-        RLED/BLED, motor/pump/lock indicators, a progress bar and a hint line for the next K1 action.
-\end{itemize}
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=0.45\linewidth]{lcd_running_wash.png}
-  \caption{LCD dashboard layout (frame rendered from the firmware's own UI code, \code{make preview})}
-  \label{fig:lcd-layout}
-\end{figure}

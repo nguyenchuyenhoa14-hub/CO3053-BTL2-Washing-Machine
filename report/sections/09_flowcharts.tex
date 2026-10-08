@@ -165,3 +165,73 @@ emits COIN($v$) events directly.
   \caption{RUN / PAUSE / STOP handling (the 1\,ms tick resets $n$ when $w$ expires)}
   \label{fig:flow-buttons}
 \end{figure}
+
+\subsection{Multi-Gesture Decoding Engine}
+
+Figure~\ref{fig:flow-gesture} details the deterministic 5-state internal sub-machine in
+\code{hal_button_gesture.c} that turns physical debounced key levels into distinct gesture tokens.
+
+\begin{figure}[H]
+  \centering
+  \resizebox{0.92\linewidth}{!}{%
+  \begin{tikzpicture}[node distance=0.6cm]
+    \node[fcterm] (s) {Debounced Key State Sampled (1\,ms)};
+    \node[fcdec, below=of s] (down) {Key Pressed?};
+    \node[fcproc, below left=1.0cm and 0.5cm of down] (d1) {State $\gets$ DOWN1\\$t_{\text{down}} \gets 0$};
+    \node[fcdec, below=of d1] (h1) {$t_{\text{down}} \ge 600\,\text{ms}$?};
+    \node[fcproc, left=1.2cm of h1] (hold1) {Emit \code{HOLD1}\\(STOP \#1 / +50\cent)};
+    \node[fcdec, below=of h1] (h2) {$t_{\text{down}} \ge 1200\,\text{ms}$?};
+    \node[fcproc, left=1.2cm of h2] (hold2) {Emit \code{HOLD2}\\(STOP \#2 / Confirm)};
+    \node[fcproc, right=1.6cm of h1] (wait) {Key Released\\State $\gets$ WAIT\\$t_{\text{gap}} \gets 0$};
+    \node[fcdec, below=of wait] (gap) {$t_{\text{gap}} > 250\,\text{ms}$?};
+    \node[fcproc, right=1.2cm of gap] (clk) {Emit \code{CLICK}\\State $\gets$ IDLE};
+    \node[fcdec, below=of gap] (d2) {Second Press\\within $250\,\text{ms}$?};
+    \node[fcproc, below=of d2] (dbl) {Emit \code{DOUBLE}\\State $\gets$ IDLE};
+
+    \draw[fa] (s) -- (down);
+    \draw[fa] (down) -| node[above, font=\scriptsize, pos=0.3]{yes (IDLE)} (d1);
+    \draw[fa] (d1) -- (h1);
+    \draw[fa] (h1) -- node[above, font=\scriptsize]{yes} (hold1);
+    \draw[fa] (h1) -- node[right, font=\scriptsize]{no} (h2);
+    \draw[fa] (h2) -- node[above, font=\scriptsize]{yes} (hold2);
+    \draw[fa] (h1) -- node[above, font=\scriptsize]{released} (wait);
+    \draw[fa] (wait) -- (gap);
+    \draw[fa] (gap) -- node[above, font=\scriptsize]{yes} (clk);
+    \draw[fa] (gap) -- node[right, font=\scriptsize]{no} (d2);
+    \draw[fa] (d2) -- node[right, font=\scriptsize]{yes} (dbl);
+  \end{tikzpicture}}
+  \caption{Multi-gesture button decoder sub-machine flowchart (\code{hal_button_gesture.c})}
+  \label{fig:flow-gesture}
+\end{figure}
+
+\subsection{Emergency Safety Fault Handling and Context Recovery}
+
+Figure~\ref{fig:flow-fault} illustrates the fail-safe emergency shutdown procedure and context-restoring
+recovery path governed by Safety Invariant $I_3$ and Assumption A8.
+
+\begin{figure}[H]
+  \centering
+  \resizebox{0.90\linewidth}{!}{%
+  \begin{tikzpicture}[node distance=0.55cm]
+    \node[fcterm, fill=red!15] (fault) {\code{WM_EVT_FAULT_OCCURRED} Asserted};
+    \node[fcproc, below=of fault] (save) {Snapshot Active State: $X_{\text{saved}} \gets S$\\Record Error Flags: $f \gets \text{flags}$};
+    \node[fcproc, below=of save] (safe) {Immediate Fail-Safe Shutdown ($T_{\text{react}} \le 30\,\text{ms}$):\\Motor $\gets$ \code{OFF}, Pump $\gets$ \code{OFF}, Valve $\gets$ \code{CLOSED},\\Door Deadbolt $\gets$ \code{UNLOCKED}, RLED $\gets$ \code{BLINK 2Hz}};
+    \node[fcproc, below=of safe] (enter) {Enter \st{ERROR} State\\Lock Out User Command Inputs};
+    \node[fcdec, below=of enter] (wait) {\code{WM_EVT_FAULT_CLEARED}?};
+    \node[fcdec, below=1.0cm of wait] (was_cycle) {$X_{\text{saved}} \in \{\text{\st{RUNNING}}, \text{\st{PAUSED}}\}$\\$\land\; t > 0$?};
+    \node[fcproc, below left=1.0cm and -0.4cm of was_cycle] (res_pause) {Transition to \st{PAUSED}\\Actuators Remain Suspended\\BLED $\gets$ Solid \code{ON}\\Door $\gets$ \code{LOCKED}\\Awaiting \code{RUN} to Resume};
+    \node[fcproc, below right=1.0cm and -0.4cm of was_cycle] (res_idle) {Restore Idle State by Balance:\\$b \ge 50 \implies \text{\st{READY}}$\\$b > 0 \implies \text{\st{COLLECTING}}$\\$b = 0 \implies \text{\st{STANDBY}}$};
+
+    \draw[fa] (fault) -- (save);
+    \draw[fa] (save) -- (safe);
+    \draw[fa] (safe) -- (enter);
+    \draw[fa] (enter) -- (wait);
+    \draw[fa] (wait) -- node[right, font=\scriptsize]{yes} (was_cycle);
+    \draw[fa] (wait.east) -- node[above, font=\scriptsize]{no (TICK$_{1\text{s}}$ active)} ++(1.4,0) |- (enter.east);
+    \draw[fa] (was_cycle) -| node[above, font=\scriptsize, pos=0.25]{yes} (res_pause);
+    \draw[fa] (was_cycle) -| node[above, font=\scriptsize, pos=0.25]{no} (res_idle);
+  \end{tikzpicture}}
+  \caption{Emergency fault trip and context-preserving recovery flowchart}
+  \label{fig:flow-fault}
+\end{figure}
+

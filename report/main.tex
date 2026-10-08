@@ -87,6 +87,38 @@
 \newcommand{\st}[1]{\texttt{\textbf{#1}}}
 \DeclareRobustCommand{\code}[1]{\texttt{\detokenize{#1}}}
 
+% "Where the numbers come from" callout box (Assignment 1 standard)
+\newtcolorbox{whybox}[1][]{
+  colback=blue!2!gray!6,
+  colframe=blue!60!black,
+  boxrule=0.8pt,
+  arc=1.5mm,
+  left=3mm, right=3mm, top=2.5mm, bottom=2.5mm,
+  fonttitle=\bfseries\footnotesize,
+  title={Where the numbers come from\ifx&#1&\else: #1\fi},
+  coltitle=blue!90!black,
+  colbacktitle=blue!10,
+  attach boxed title to top left={yshift=-2mm, xshift=3mm},
+  boxed title style={boxrule=0.5pt, arc=1mm}
+}
+\newcommand{\why}[2][]{\par\vspace{0.3em}\noindent\begin{whybox}[#1]\small #2\end{whybox}\vspace{0.3em}}
+
+% Formal Theorem environment (Assignment 1 mathematical standard)
+\newtcolorbox{thmbox}[1][]{
+  colback=teal!2!gray!5,
+  colframe=teal!60!black,
+  boxrule=0.8pt,
+  arc=1.5mm,
+  left=3mm, right=3mm, top=2.5mm, bottom=2.5mm,
+  fonttitle=\bfseries\footnotesize,
+  title={Theorem\ifx&#1&\else: #1\fi},
+  coltitle=teal!90!black,
+  colbacktitle=teal!10,
+  attach boxed title to top left={yshift=-2mm, xshift=3mm},
+  boxed title style={boxrule=0.5pt, arc=1mm}
+}
+
+
 \newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
 \newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
 \newcolumntype{Y}{>{\raggedright\arraybackslash}X}
