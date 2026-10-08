@@ -145,7 +145,7 @@ source module comprising the firmware codebase.
 The FSM communicates with the physical environment exclusively through a strongly typed callback table
 (\code{hal_output_callbacks_t}), passed as a pointer during \code{wm_fsm_init()}:
 
-\begin{lstlisting}[caption={Formal HAL output callback abstraction (\code{hal_interfaces.h})}]
+\begin{lstlisting}[caption={Formal HAL output callback interface definition}]
 typedef struct {
     void (*set_rled)(hal_led_state_t state);
     void (*set_bled)(hal_led_state_t state);

@@ -44,7 +44,7 @@ throughout our implementation.
 
 \subsection{State, Event, and Context Encapsulation}
 
-\begin{lstlisting}[caption={State, event, and context definitions (\code{washing_machine_fsm.h})}]
+\begin{lstlisting}[caption={State, event, and context data structure definitions}]
 typedef enum {
     WM_STATE_STANDBY = 0,   /* RLED=ON,  BLED=OFF                     */
     WM_STATE_COLLECTING,    /* 0 < deposit < 50c; RLED=ON, BLED=OFF   */
@@ -84,7 +84,7 @@ The core FSM is implemented as a single-entry function \code{wm_fsm_dispatch_eve
 State transitions invoke dedicated \code{enter_xxx()} functions that apply the Moore output
 rules in a centralized, unforgeable location.
 
-\begin{lstlisting}[caption={Event dispatcher implementation (\code{washing_machine_fsm.c})}]
+\begin{lstlisting}[caption={Deterministic event dispatcher implementation}]
 bool wm_fsm_dispatch_event(wm_context_t *ctx, wm_event_t event) {
     if (!ctx) return false;
 
@@ -167,7 +167,7 @@ static void enter_running(wm_context_t *ctx, bool is_resuming) {
 To verify Safety Invariants $I_1$ and $I_2$ (Section~\ref{sec:invariants}) at runtime, the HAL
 implements the defensive validator \code{hal_actuator_is_safe()}:
 
-\begin{lstlisting}[caption={Runtime actuator safety invariant validator (\code{hal_led_blinker.c})}]
+\begin{lstlisting}[caption={Runtime actuator safety invariant validation logic}]
 bool hal_actuator_is_safe(const hal_actuator_state_t *act) {
     if (act == NULL) {
         return false;

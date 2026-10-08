@@ -28,7 +28,7 @@ The verification suite was executed across five specialized host test harnesses 
 
 \noindent Listing~\ref{lst:test-log} demonstrates a representative execution excerpt from the primary 34-test core FSM suite, highlighting the validation of critical boundary conditions and temporal invariants.
 
-\begin{lstlisting}[style=logstyle, caption={Execution log from core FSM test suite (\code{test_washing_machine.c})}, label={lst:test-log}]
+\begin{lstlisting}[style=logstyle, caption={Execution log excerpt from the automated core FSM verification suite}, label={lst:test-log}]
 ============================================================
  BTL 2: Washing Machine Control Unit - Verification Suite
  CO3053 Embedded Systems - HCMUT
@@ -193,12 +193,13 @@ The STM32H750 firmware transmits real-time state telemetry over USART1 at $115{,
 \end{lstlisting}
 
 \subsection{Memory Footprint and Resource Utilization}
+\label{sec:memory-footprint}
 
-Memory consumption of the target executable (\code{build/h750/washer.elf}) was quantitatively audited using \code{arm-none-eabi-size} and mapfile analysis (\code{washer.map}). The exact memory allocation is detailed in Table~\ref{tab:size}.
+Memory consumption of the compiled target firmware binary was quantitatively audited using cross-toolchain binary sizing and linker mapfile inspection. The exact memory allocation is detailed in Table~\ref{tab:size}.
 
 \begin{table}[H]
   \centering
-  \caption{Target Firmware Memory Footprint (\code{arm-none-eabi-size build/h750/washer.elf})}
+  \caption{Target Firmware Static Memory Allocation and Resource Utilization}
   \label{tab:size}
   \begin{tabularx}{\linewidth}{lXrrr}
     \toprule
@@ -219,7 +220,7 @@ Memory consumption of the target executable (\code{build/h750/washer.elf}) was q
 \end{table}
 
 \subsection{Memory Allocation Engineering Justification}
-An analysis of the memory footprint in Table~\ref{tab:memory-footprint} demonstrates the deterministic properties of the bare-metal architecture:
+An analysis of the memory footprint in Table~\ref{tab:size} demonstrates the deterministic properties of the bare-metal architecture:
 \begin{itemize}
   \item \textbf{Flash Efficiency ($9\,344$\,B total):} The entire control unit, font glyph table, graphical rendering routines, and bare-metal peripheral drivers occupy merely $7.12$\,\% of the microcontroller's 128\,KB internal Flash, leaving over $118$\,KB available for future expansion (e.g., IoT connectivity or full RTOS integration).
   \item \textbf{RAM Determinism ($25\,776$\,B total):} Over $99.3$\,\% ($25\,600$\,bytes) of allocated SRAM is dedicated exclusively to the off-screen double-buffered graphics frame buffer. The entire logical state of the washing machine control system (FSM context, timers, debouncers, blinkers) requires merely \textbf{176 bytes} of memory.
