@@ -5,12 +5,9 @@
 
 Only the key architectural fragments are presented in this section; the unabridged, line-by-line
 source code listings are compiled in Appendix~\ref{app:source}. The entire codebase is implemented in
-strict ISO C99, compiled with aggressive compiler diagnostics enabled:
-\begin{center}
-  \code{-Wall -Wextra -Werror -pedantic -std=c99}
-\end{center}
-on both the host x86\_64 toolchain (`gcc`) and the embedded cross-compiler
-(\code{arm-none-eabi-gcc -mcpu=cortex-m7 -Os}). The production firmware utilizes zero dynamic heap
+strict ISO C99 and compiled with aggressive compiler diagnostic flags (\code{-Wall -Wextra -Werror -pedantic -std=c99})
+across both the host x86\_64 toolchain (\code{gcc}) and the embedded target cross-compiler
+(\code{arm-none-eabi-gcc} under \code{-mcpu=cortex-m7 -Os}). The production firmware utilizes zero dynamic heap
 allocation (\code{malloc}/\code{free}), avoids bloated standard library formatters (no \code{printf}),
 and occupies only $9.3\,\text{KB}$ of internal Flash memory.
 
@@ -19,7 +16,7 @@ and occupies only $9.3\,\text{KB}$ of internal Flash memory.
 
 In mission-critical embedded control, adherence to the Motor Industry Software Reliability Association
 (MISRA-C:2012) guidelines is paramount to eliminate undefined runtime behaviors, memory corruption,
-and unhandled exceptions \cite{misra2012}. Table~\ref{tab:misra} documents the primary rules enforced
+and unhandled exceptions~\cite{misra2012}. Table~\ref{tab:misra} documents the primary rules enforced
 throughout our implementation.
 
 \begin{table}[H]
@@ -27,7 +24,8 @@ throughout our implementation.
   \caption{MISRA-C:2012 compliance verification and implementation evidence}
   \label{tab:misra}
   \small
-  \begin{tabularx}{\linewidth}{lL{4.1cm}Y}
+  \renewcommand{\arraystretch}{1.18}
+  \begin{tabularx}{\linewidth}{L{2.2cm}L{4.4cm}Y}
     \toprule
     \textbf{MISRA Rule} & \textbf{Formal Guideline Requirement} & \textbf{Implementation Enforcement in Washing Machine Codebase} \\
     \midrule

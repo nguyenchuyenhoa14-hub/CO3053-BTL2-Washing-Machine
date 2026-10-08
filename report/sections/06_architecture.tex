@@ -5,7 +5,7 @@
 
 \subsection{Architectural Paradigm: Layered Abstraction and Dependency Inversion}
 
-The firmware is structured strictly according to the **Dependency Inversion Principle (DIP)**
+The firmware is structured strictly according to the \textbf{Dependency Inversion Principle (DIP)}
 from modern safety-critical software engineering. Rather than having high-level business logic
 (the FSM) directly read peripheral registers or invoke hardware-specific drivers, both high-level
 and low-level components depend on abstract interfaces defined in \code{hal_interfaces.h}.
@@ -15,79 +15,91 @@ Figure~\ref{fig:arch} illustrates the four-tier architectural hierarchy:
   \item \textbf{Tier 1: Physical Hardware \& Microcontroller Peripherals:} Raw GPIO registers, SysTick
         counter, SPI4 transmit engine, and USART1 UART peripheral.
   \item \textbf{Tier 2: Hardware Abstraction Layer (HAL) Drivers:} Platform-independent algorithms
-        for 30\,ms switch debounce integration (\code{hal_button_engine.c}), non-blocking LED waveform
-        synthesis (\code{hal_led_blinker.c}), multi-gesture decoding (\code{hal_button_gesture.c}),
-        and pulse-train coin recognition (\code{hal_coin_pulse.c}).
-  \item \textbf{Tier 3: Core Finite State Machine (FSM):} The deterministic state engine
-        (\code{washing_machine_fsm.c}), maintaining zero dependencies on microcontroller registers,
+        for 30\,ms switch debounce integration, non-blocking LED waveform
+        synthesis, multi-gesture decoding, and pulse-train coin recognition.
+  \item \textbf{Tier 3: Core Finite State Machine (FSM):} The deterministic state engine,
+        maintaining zero dependencies on microcontroller registers,
         memory-mapped I/O, or blocking operating system calls.
-  \item \textbf{Tier 4: Application \& Telemetry Layer:} Front-panel gesture translators
-        (\code{wm_single_button.c}, \code{wm_two_button.c}), graphical LCD rendering (\code{ui_render.c}),
-        and remote serial console handlers (\code{ui_text.c}).
+  \item \textbf{Tier 4: Application \& Telemetry Layer:} Front-panel gesture translators,
+        graphical LCD rendering, and remote serial console handlers.
 \end{enumerate}
 
 \begin{figure}[H]
   \centering
-  \resizebox{0.92\linewidth}{!}{%
+  \resizebox{\linewidth}{!}{%
   \begin{tikzpicture}[
-      m/.style={draw, thick, rounded corners, align=center, font=\small, minimum width=3.8cm, minimum height=1.1cm, fill=white},
+      m/.style={draw, thick, rounded corners, align=center, font=\small, minimum height=0.85cm, fill=white, inner sep=3pt},
       a/.style={-{Stealth[length=2.4mm]}, thick},
-      layer/.style={draw=gray!60, dashed, rounded corners, inner sep=8pt},
-      ln/.style={font=\scriptsize\bfseries\itshape, text=blue!75!black, anchor=north west},
+      layer/.style={draw=blue!60!black, dashed, rounded corners=4pt, fill=none},
+      layer_hdr/.style={draw=blue!70!black, thick, rounded corners=3pt, fill=white, font=\footnotesize\bfseries\color{blue!80!black}, align=center, text width=2.1cm, inner sep=2pt},
     ]
-    % inputs
-    \node[m, fill=gray!10] (in) at (0,0) {Button / Coin Inputs\\\scriptsize K1 (PC13), K0 (PA0), STOP (PA1), UART};
+    % Physical Inputs (top)
+    \node[m, fill=white, text width=11.0cm] (in) at (1.4, 0.0) 
+      {\textbf{Physical Inputs}: Onboard Key K1 (PC13), Ext Keys K0/STOP, Coin Pulses, UART Stream};
 
-    % drivers (spacious layout, zero clipping)
-    \node[m, minimum width=3.8cm] (deb) at (0,-2.0) {Button Debounce Driver\\[1pt]\scriptsize \code{hal_button_engine.c}\\[1pt]\scriptsize ($30\,\text{ms}$ Integrator)};
-    \node[m, dashed, minimum width=3.2cm] (coin) at (5.2,-2.0) {Coin Pulse Decoder\\[1pt]\scriptsize \code{hal_coin_pulse.c}\\[1pt]\scriptsize (Opto-isolated)};
-    \node[m, minimum width=4.4cm] (gst) at (0,-4.2) {Multi-Gesture Decoder\\\scriptsize \code{hal_button_gesture.c} (5-state sub-FSM)};
+    % Layer 1: Input HAL Drivers (y = -1.9)
+    \node[m, text width=3.1cm] (deb) at (-2.3, -1.9) 
+      {\textbf{Key Debouncer}\\[2pt]\footnotesize $30\,\text{ms}$ Glitch Filter};
+    \node[m, text width=3.1cm] (gst) at (1.4, -1.9) 
+      {\textbf{Gesture Decoder}\\[2pt]\footnotesize 5-State Sub-FSM};
+    \node[m, dashed, text width=3.0cm] (coin) at (5.1, -1.9) 
+      {\textbf{Pulse Validator}\\[2pt]\footnotesize FIFO Coin Accumulator};
 
-    % application dispatcher
-    \node[m, minimum width=4.6cm] (evt) at (0,-6.4) {Front Panel Dispatcher\\\scriptsize \code{wm_two_button.c} / \code{wm_single_button.c}};
+    % Layer 2: Application Front-Panel Dispatcher (y = -4.3)
+    \node[m, text width=8.6cm] (evt) at (1.4, -4.3) 
+      {\textbf{Front-Panel Event Dispatcher}\\[2pt]\footnotesize Translates Gestures \& Pulses to Formal Events (COIN, RUN, PAUSE, STOP)};
 
-    % fsm & time-base
-    \node[m, fill=stRun, minimum width=4.6cm, minimum height=1.2cm, font=\small\bfseries] (fsm) at (0,-8.6) 
-      {Deterministic FSM Core\\\scriptsize\mdseries \code{washing_machine_fsm.c}};
-    \node[m, minimum width=4.2cm] (tick) at (-6.2,-8.6) {Timer \& Clock Engine\\\scriptsize SysTick 1\,ms $\rightarrow$ 1\,ms / 1\,s ticks\\\scriptsize (Drives debounce and blinkers)};
+    % Layer 3: Core Logic & Prescaler Time-Base (y = -6.65)
+    \node[m, text width=2.7cm] (tick) at (-2.9, -6.65) 
+      {\textbf{Time-Base Engine}\\[2pt]\footnotesize SysTick ($1\,\text{ms} \to 1\,\text{s}$)};
+    \node[m, fill=stRun, text width=5.4cm, font=\small\bfseries] (fsm) at (3.5, -6.65) 
+      {Deterministic EFSM Core\\[2pt]\footnotesize\mdseries 6 Modes $\times$ Tuple $\mathbf{c} = (b, t, n, w, f)$};
 
-    % outputs
-    \node[m, minimum width=4.2cm] (cb)  at (0,-10.8) {HAL Output Callbacks\\\scriptsize \code{hal_output_callbacks_t}};
-    \node[m, minimum width=3.4cm] (led) at (-4.8,-12.8) {LED Blinker Engine\\\scriptsize \code{hal_led_blinker.c} ($1\,\text{Hz}, 2\,\text{Hz}$)};
-    \node[m, minimum width=3.2cm] (act) at (0,-12.8) {Actuator Driver\\\scriptsize Motor / Pump / Solenoid};
-    \node[m, minimum width=3.4cm] (ui)  at (4.8,-12.8) {Dashboard \& Telemetry\\\scriptsize \code{ui_render.c}, \code{ui_text.c}};
-    \node[m, fill=gray!10, minimum width=13.6cm] (hw) at (0,-14.8) 
-      {Board Peripherals (\code{board_h750.c}, \code{lcd_st7735.c}): GPIO, SPI4, USART1, TIM1 PWM};
+    % Layer 4: Output HAL Callbacks & Drivers (y = -9.1 and y = -11.3)
+    \node[m, text width=8.6cm] (cb) at (1.4, -9.1) 
+      {\textbf{HAL Output Callback Interface}\\[2pt]\footnotesize Strictly Typed Actuator \& Optical Callback Table};
+    \node[m, text width=3.1cm] (led) at (-2.3, -11.3) 
+      {\textbf{LED Blinker Engine}\\[2pt]\footnotesize $1\,\text{Hz} / 2\,\text{Hz}$ Square-Wave};
+    \node[m, text width=3.1cm] (act) at (1.4, -11.3) 
+      {\textbf{Actuator Controller}\\[2pt]\footnotesize Motor Tumbler / Drain Pump};
+    \node[m, text width=3.0cm] (ui) at (5.1, -11.3) 
+      {\textbf{Dashboard \& Console}\\[2pt]\footnotesize ST7735 SPI4 \& USART1};
 
-    % signal flow
-    \draw[a] (in) -- (deb);
-    \draw[a] (deb) -- (gst);
-    \draw[a] (gst) -- node[right, font=\scriptsize]{Gestures (Click / Double / Hold)} (evt);
-    \draw[a] (evt) -- node[right, font=\scriptsize]{\code{wm_event_t}} (fsm);
-    \draw[a] (tick) -- node[below, font=\scriptsize]{Periodic Ticks} (fsm);
-    \draw[a] (fsm) -- (cb);
-    \draw[a] (cb) -| (led);
-    \draw[a] (cb) -- (act);
-    \draw[a] (cb) -| (ui);
-    \draw[a] (led) -- (led |- hw.north);
-    \draw[a] (act) -- (hw);
-    \draw[a] (ui) -- (ui |- hw.north);
-    \draw[a, dashed] (coin) |- (evt);
-    \draw[a] (tick.north) |- (deb.west);
-    \draw[a, dashed] (fsm.east) -| node[pos=0.25, above, font=\scriptsize]{state snapshot} (ui.north);
+    % Physical Board Peripherals (bottom)
+    \node[m, fill=white, text width=11.0cm] (hw) at (1.4, -13.5) 
+      {\textbf{Target Microcontroller Hardware}: GPIO Registers, SPI4 Master, USART1 Telemetry, TIM1 PWM, SysTick};
 
-    % architectural layer boundaries with right-hand badges (zero collision)
+    % Architectural layer grouping background boxes
     \begin{scope}[on background layer]
-      \draw[layer, fill=blue!1] (-8.6, -1.2) rectangle (10.5, -4.9);
-      \draw[layer, fill=blue!1] (-8.6, -5.5) rectangle (10.5, -7.3);
-      \draw[layer, fill=blue!1] (-8.6, -7.6) rectangle (10.5, -9.6);
-      \draw[layer, fill=blue!1] (-8.6, -9.9) rectangle (10.5, -13.7);
+      \draw[layer] (-6.9, -1.0) rectangle (6.9, -2.8);
+      \draw[layer] (-6.9, -3.3) rectangle (6.9, -5.3);
+      \draw[layer] (-6.9, -5.5) rectangle (6.9, -7.8);
+      \draw[layer] (-6.9, -8.2) rectangle (6.9, -12.4);
     \end{scope}
-    \node[fill=white, draw=blue!50, rounded corners=2pt, font=\scriptsize\bfseries\color{blue!80!black}, inner sep=3pt, anchor=east] at (10.2, -1.6) {Layer 1: Input HAL};
-    \node[fill=white, draw=blue!50, rounded corners=2pt, font=\scriptsize\bfseries\color{blue!80!black}, inner sep=3pt, anchor=east] at (10.2, -6.4) {Layer 2: Application};
-    \node[fill=white, draw=blue!50, rounded corners=2pt, font=\scriptsize\bfseries\color{blue!80!black}, inner sep=3pt, anchor=east] at (10.2, -8.6) {Layer 3: Core Logic};
-    \node[fill=white, draw=blue!50, rounded corners=2pt, font=\scriptsize\bfseries\color{blue!80!black}, inner sep=3pt, anchor=east] at (10.2, -10.8) {Layer 4: Output HAL};
-  \end{tikzpicture}}
+
+    % Dedicated Left Column Layer Headers (never intersects vertical signal arrows)
+    \node[layer_hdr] at (-5.6, -1.9) {\textbf{Layer 1}\\[2pt]\footnotesize Input Drivers};
+    \node[layer_hdr] at (-5.6, -4.3) {\textbf{Layer 2}\\[2pt]\footnotesize Dispatcher};
+    \node[layer_hdr] at (-5.6, -6.65) {\textbf{Layer 3}\\[2pt]\footnotesize EFSM Core};
+    \node[layer_hdr] at (-5.6, -10.3) {\textbf{Layer 4}\\[2pt]\footnotesize Output HAL\\[1pt]\footnotesize Callbacks};
+
+    % Signal flows
+    \draw[a] (in.south -| deb.north) -- (deb.north);
+    \draw[a] (in.south -| coin.north) -- (coin.north);
+    \draw[a] (deb) -- (gst);
+    \draw[a] (gst) -- (gst |- evt.north);
+    \draw[a, dashed] (coin.south) -- (coin.south |- evt.north);
+    \draw[a] (evt.south -| fsm.north) -- node[right=3pt, font=\footnotesize, fill=white, inner sep=2pt, pos=0.75]{Events} (fsm.north);
+    \draw[a] (tick) -- node[above=2pt, font=\footnotesize, fill=white, inner sep=2pt]{$1\,\text{s}$ Ticks} (fsm);
+    \draw[a] (fsm.south) -- (fsm.south |- cb.north);
+    \draw[a] (cb.south -| led.north) -- (led.north);
+    \draw[a] (cb.south -| act.north) -- (act.north);
+    \draw[a] (cb.south -| ui.north) -- (ui.north);
+    \draw[a] (led.south) -- (led.south |- hw.north);
+    \draw[a] (act.south) -- (act.south |- hw.north);
+    \draw[a] (ui.south) -- (ui.south |- hw.north);
+  \end{tikzpicture}%
+  }
   \caption{Layered software architecture of the washing machine control system}
   \label{fig:arch}
 \end{figure}
@@ -97,7 +109,7 @@ Figure~\ref{fig:arch} illustrates the four-tier architectural hierarchy:
 Table~\ref{tab:modules} catalogues the responsibilities, dependencies, and interfaces of every
 source module comprising the firmware codebase.
 
-\begin{longtable}{L{4.2cm}L{10.5cm}}
+\begin{longtable}{L{4.8cm}L{10.8cm}}
   \caption{Software modules and component breakdown}\label{tab:modules}\\
   \toprule
   \textbf{Module (File)} & \textbf{Architectural Responsibility \& Implementation Details} \\
@@ -160,7 +172,7 @@ typedef struct {
 
 \noindent This structural decoupling provides three decisive advantages:
 \begin{enumerate}
-  \item \textbf{100\% Host Testability:} The exact same compiled object file \code{washing_machine_fsm.o}
+  \item \textbf{100\% Host Testability:} The exact same compiled FSM core object code
         is linked into the automated test runner on Linux/Windows (`gcc`), verifying all 34 transition rules
         in $<0.15\,\text{s}$ with zero hardware dependencies.
   \item \textbf{Microcontroller Agnosticism:} The FSM core can be ported to any target MCU (e.g., STM32F4,
@@ -179,47 +191,48 @@ Figure~\ref{fig:seq-diagram} depicts the end-to-end execution sequence when a us
 
 \begin{figure}[H]
   \centering
-  \resizebox{0.95\linewidth}{!}{%
+  \resizebox{\linewidth}{!}{%
   \begin{tikzpicture}[
       font=\small,
       lifeline/.style={draw=gray!50, thick, dashed},
-      box/.style={draw, thick, rounded corners, fill=blue!8, minimum width=2.4cm, minimum height=0.7cm, align=center},
+      box/.style={draw, thick, rounded corners, fill=white, minimum width=1.9cm, text width=1.9cm, minimum height=0.8cm, align=center, font=\footnotesize\bfseries},
       call/.style={thick, -{Stealth[length=2mm]}},
       ret/.style={thick, dashed, -{Stealth[length=2mm]}},
-      note/.style={draw=orange!80!black, thick, fill=yellow!20, rounded corners, font=\scriptsize, align=center, inner sep=4pt}
+      note/.style={draw=orange!80!black, thick, fill=white, rounded corners, font=\footnotesize, align=center, inner sep=4pt}
     ]
-    % Entities
-    \node[box] (usr) at (0,0) {User / Plant};
-    \node[box] (gpio) at (3.2,0) {GPIO Driver\\[-2pt]\scriptsize \code{PC13}};
-    \node[box] (deb) at (6.4,0) {Debounce\\[-2pt]\scriptsize \code{Engine}};
-    \node[box] (gst) at (9.6,0) {Gesture\\[-2pt]\scriptsize \code{Decoder}};
-    \node[box, fill=stRun] (fsm) at (12.8,0) {FSM Core\\[-2pt]\scriptsize \code{EFSM}};
-    \node[box, fill=teal!10] (hal) at (16.0,0) {HAL Callbacks\\[-2pt]\scriptsize \code{Outputs}};
+    % Entities (lifelines spaced evenly across 14.0cm textwidth)
+    \node[box] (usr) at (0.5,0) {User /\\Plant};
+    \node[box] (gpio) at (3.0,0) {GPIO Driver\\PC13};
+    \node[box] (deb) at (5.5,0) {Debounce\\Engine};
+    \node[box] (gst) at (8.0,0) {Gesture\\Decoder};
+    \node[box, fill=stRun] (fsm) at (10.8,0) {FSM Core\\EFSM};
+    \node[box, fill=teal!10] (hal) at (13.8,0) {HAL Callbacks\\Outputs};
 
     % Lifelines
-    \draw[lifeline] (usr) -- (0,-8.2);
-    \draw[lifeline] (gpio) -- (3.2,-8.2);
-    \draw[lifeline] (deb) -- (6.4,-8.2);
-    \draw[lifeline] (gst) -- (9.6,-8.2);
-    \draw[lifeline] (fsm) -- (12.8,-8.2);
-    \draw[lifeline] (hal) -- (16.0,-8.2);
+    \draw[lifeline] (usr) -- (0.5,-9.6);
+    \draw[lifeline] (gpio) -- (3.0,-9.6);
+    \draw[lifeline] (deb) -- (5.5,-9.6);
+    \draw[lifeline] (gst) -- (8.0,-9.6);
+    \draw[lifeline] (fsm) -- (10.8,-9.6);
+    \draw[lifeline] (hal) -- (13.8,-9.6);
 
-    % Calls
-    \draw[call] (0,-1.0) -- node[above, font=\scriptsize]{Press K1} (3.2,-1.0);
-    \draw[call] (3.2,-1.5) -- node[above, font=\scriptsize]{Raw HIGH} (6.4,-1.5);
-    \draw[call] (6.4,-2.3) -- node[above, font=\scriptsize]{Stable Press ($30\,\text{ms}$)} (9.6,-2.3);
-    \draw[call] (0,-2.8) -- node[above, font=\scriptsize]{Release K1} (3.2,-2.8);
-    \draw[call] (9.6,-3.6) -- node[above, font=\scriptsize]{Single Click Token} (12.8,-3.6);
+    % Call invocations (ample clearance below entity headers)
+    \draw[call] (0.5,-1.4) -- node[above=2pt, font=\footnotesize, fill=white, inner sep=2pt]{Press K1} (3.0,-1.4);
+    \draw[call] (3.0,-2.0) -- node[above=2pt, font=\footnotesize, fill=white, inner sep=2pt]{Raw HIGH} (5.5,-2.0);
+    \draw[call] (5.5,-2.8) -- node[above=2pt, font=\footnotesize, fill=white, inner sep=2pt]{Stable Press ($30\,\text{ms}$)} (8.0,-2.8);
+    \draw[call] (0.5,-3.4) -- node[above=2pt, font=\footnotesize, fill=white, inner sep=2pt]{Release K1} (3.0,-3.4);
+    \draw[call] (8.0,-4.2) -- node[above=2pt, font=\footnotesize, fill=white, inner sep=2pt]{Single Click Token} (10.8,-4.2);
     
-    % FSM Transition Execution Note (Clear vertical separation)
-    \node[note, text width=3.2cm] at (12.8,-4.5) 
-      {\textbf{T08 Fired}: \st{READY} $\to$ \st{RUNNING}\\[2pt]$b := 0, \quad t := 1800\,\text{s}$};
+    % FSM Transition Execution Note
+    \node[note, text width=3.4cm] at (10.8,-5.3) 
+      {\textbf{T08 Fired}: \st{READY} $\to$ \st{RUNNING}\\[2pt]$b \gets 0, \quad t \gets 1800\,\text{s}$};
 
-    % Actuator Callbacks invoked below note (Zero text overlap)
-    \draw[call] (12.8,-5.9) -- node[above, font=\scriptsize]{\code{set_door_lock(LOCKED)}} (16.0,-5.9);
-    \draw[call] (12.8,-6.6) -- node[above, font=\scriptsize]{\code{set_motor(AGITATE)}} (16.0,-6.6);
-    \draw[call] (12.8,-7.3) -- node[above, font=\scriptsize]{\code{set_bled(BLINK_1HZ)}} (16.0,-7.3);
-  \end{tikzpicture}}
+    % Hardware-abstracted actuator commands (clean labels, generous travel)
+    \draw[call] (10.8,-6.7) -- node[above=2pt, font=\footnotesize, fill=white, inner sep=2pt]{Lock Door Deadbolt} (13.8,-6.7);
+    \draw[call] (10.8,-7.6) -- node[above=2pt, font=\footnotesize, fill=white, inner sep=2pt]{Command Drum Agitate (PWM)} (13.8,-7.6);
+    \draw[call] (10.8,-8.5) -- node[above=2pt, font=\footnotesize, fill=white, inner sep=2pt]{Command BLED ($1.0\,\text{Hz}$ Blink)} (13.8,-8.5);
+  \end{tikzpicture}%
+  }
   \caption{UML sequence diagram: Deterministic signal propagation from physical press to actuator callback}
   \label{fig:seq-diagram}
 \end{figure}

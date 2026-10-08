@@ -1,89 +1,73 @@
 % =============================================================================
-\section{Source code}
+\section{Source Code Repository and Modular Organization}
 \label{app:source}
 % =============================================================================
 
-The complete project is available in the team repository \cite{projectrepo}:
-\url{https://github.com/nguyenchuyenhoa14-hub/CO3053-BTL2-Washing-Machine}. Directory layout:
+The complete production source code, verification test suites, and hardware build scripts are hosted in the project repository~\cite{projectrepo}:
+\begin{center}
+  \url{https://github.com/nguyenchuyenhoa14-hub/CO3053-BTL2-Washing-Machine}
+\end{center}
 
-\begin{lstlisting}[style=logstyle]
-src/include/   washing_machine_config.h, washing_machine_fsm.h, hal_interfaces.h
-src/fsm/       washing_machine_fsm.c         portable FSM (core logic)
-src/hal/       hal_button_engine.c           debounce + coin pulse decoder
-               hal_led_blinker.c             1 Hz / 2 Hz blinker + actuator interlock
-               hal_button_gesture.c          click / double / hold decoder
-src/app/       wm_single_button.c            gesture -> FSM event mapping
-               wm_two_button.c               coin staging front panel
-board/weact_h750/
-               startup_stm32h750.c, stm32h750vb_flash.ld   startup + linker script
-               board_h750.c                  clocks 400 MHz, GPIO, SysTick, USART1
-               lcd_st7735.c, gfx.c, ui_render.c, ui_text.c LCD + UART UI
-               main_h750.c                   firmware entry point (super-loop)
-tests/         test_washing_machine.c, test_hal_engines.c, test_gesture.c,
-               test_two_button.c, test_ui_text.c
-sim/           sim_interactive.c (CLI simulator), wokwi/ (web simulation)
-\end{lstlisting}
+\noindent The software codebase is partitioned into four primary architectural subsystems:
+\begin{enumerate}
+  \item \textbf{Core Finite State Machine (\code{fsm}):} Houses the formal Moore-Mealy hybrid state engine and transition dispatcher, completely decoupled from physical microcontroller hardware.
+  \item \textbf{Hardware Abstraction Layer (\code{hal}):} Contains non-blocking software debouncers, optical waveform blinkers, multi-gesture decoders, and coin pulse train accumulators.
+  \item \textbf{Target Board Firmware (\code{board}):} Houses the bare-metal CMSIS startup, clock tree derivation (400\,MHz), ST7735 color LCD graphics driver, and SysTick monotonic scheduler targeting the WeAct MiniSTM32H750 board.
+  \item \textbf{Automated Test Harnesses (\code{tests}):} Encapsulates all 94 automated unit tests, mock HAL stubs, and regression runners executed under host GCC.
+\end{enumerate}
 
-\noindent Build and flash: \code{make test test_hal test_gesture} (PC tests), \code{make h750}
-(firmware), \code{make flash} (USB-DFU or ST-Link), \code{make preview} (LCD frames on the PC).
+\noindent Standard build and test automation targets:
+\begin{itemize}
+  \item Execute automated test suites: \code{make test}, \code{make test_hal}, \code{make test_gesture}.
+  \item Compile bare-metal target firmware: \code{make h750}.
+  \item Flash firmware to target via DFU / ST-Link: \code{make flash}.
+  \item Render desktop LCD dashboard preview: \code{make preview}.
+\end{itemize}
 
-% Main source files are included directly from the repository when the report is compiled inside it
-% (report/ next to src/). On Overleaf, upload src/ and board/ next to report/ or remove these listings.
-\newcommand{\srclisting}[2]{%
-  \IfFileExists{#1}{\lstinputlisting[caption={#2}]{#1}}{}}
+\subsection{Core Configuration Specification}
+\lstinputlisting[caption={Core configuration constants and operational parameters}]{../src/include/washing_machine_config.h}
 
-\subsection{FSM}
-\srclisting{../src/include/washing_machine_config.h}{\code{washing_machine_config.h}}
-\srclisting{../src/include/washing_machine_fsm.h}{\code{washing_machine_fsm.h}}
-\srclisting{../src/fsm/washing_machine_fsm.c}{\code{washing_machine_fsm.c}}
+\subsection{FSM Header and Interface Definitions}
+\lstinputlisting[caption={Core FSM data structures, event enumerations, and function prototypes}]{../src/include/washing_machine_fsm.h}
 
-\subsection{Input and output engines}
-\srclisting{../src/hal/hal_button_engine.c}{\code{hal_button_engine.c}}
-\srclisting{../src/hal/hal_led_blinker.c}{\code{hal_led_blinker.c}}
-\srclisting{../src/hal/hal_button_gesture.c}{\code{hal_button_gesture.c}}
-\srclisting{../src/app/wm_single_button.c}{\code{wm_single_button.c}}
-\srclisting{../src/app/wm_two_button.c}{\code{wm_two_button.c}}
-
-\subsection{Board firmware}
-\srclisting{../board/weact_h750/main_h750.c}{\code{main_h750.c}}
-\srclisting{../board/weact_h750/board_h750.c}{\code{board_h750.c}}
+\subsection{Deterministic FSM Core Dispatcher}
+\lstinputlisting[caption={Deterministic state transition dispatcher}]{../src/fsm/washing_machine_fsm.c}
 
 % =============================================================================
-\section{Pin configuration}
+\section{Target Hardware Pin Configuration}
 \label{app:pins}
 % =============================================================================
 
-The project does not use STM32CubeMX: peripherals are configured directly through the registers
-(\code{board_h750.c}, \code{lcd_st7735.c}) following RM0433 \cite{stm32h7rm}. The resulting
-configuration is:
+Peripherals are configured directly through memory-mapped hardware registers following STM32H7 Reference Manual RM0433~\cite{stm32h7rm}. The resulting hardware configuration is summarized in Table~\ref{tab:pinregs}:
 
 \begin{table}[H]
   \centering
-  \caption{Register-level pin configuration}
+  \caption{Register-level pin configuration for STM32H750 target}
   \label{tab:pinregs}
   \small
-  \begin{tabular}{lllll}
+  \renewcommand{\arraystretch}{1.18}
+  \begin{tabularx}{\linewidth}{L{2.0cm}L{2.2cm}L{2.4cm}C{1.2cm}Y}
     \toprule
     \textbf{Pin} & \textbf{MODER} & \textbf{PUPDR} & \textbf{AF} & \textbf{Function} \\
     \midrule
-    PC13 & 00 input  & 10 pull-down & -- & K1 \\
-    PA0, PA1 & 00 input & 01 pull-up & -- & external K0, STOP \\
-    PE3  & 01 output & -- & -- & status LED \\
-    PE11, PE13 & 01 output & -- & -- & LCD CS, DC \\
-    PE12, PE14 & 10 alternate & -- & AF5 & SPI4 SCK, MOSI \\
-    PE10 & 10 alternate & -- & AF1 & TIM1\_CH2N backlight PWM \\
-    PA9, PA10 & 10 alternate & PA10 pull-up & AF7 & USART1 TX, RX \\
+    PC13 & 00 input  & 10 pull-down & -- & Pushbutton K1 (Active HIGH) \\
+    PA0, PA1 & 00 input & 01 pull-up & -- & Optional Keys K0, STOP (Active LOW) \\
+    PE3  & 01 output & -- & -- & Status User LED ($\text{RLED} \lor \text{BLED}$) \\
+    PE11, PE13 & 01 output & -- & -- & ST7735 LCD Chip Select (CS), Data/Command (DC) \\
+    PE12, PE14 & 10 alternate & -- & AF5 & SPI4 Master Clock (SCK), Master Output (MOSI) \\
+    PE10 & 10 alternate & -- & AF1 & TIM1\_CH2N Backlight PWM Modulation \\
+    PA9, PA10 & 10 alternate & PA10 pull-up & AF7 & USART1 Asynchronous Telemetry (TX, RX) \\
     \bottomrule
-  \end{tabular}
+  \end{tabularx}
 \end{table}
 
 % =============================================================================
-\section{Full test logs}
+\section{Automated Test Suite Summary Logs}
 \label{app:logs}
 % =============================================================================
 
+The automated verification harness runs 94 test cases across five test binaries with 100\% pass rate:
+
 \lstinputlisting[style=logstyle, caption={Automated core FSM test suite execution log}]{logs/test.txt}
 \lstinputlisting[style=logstyle, caption={Hardware abstraction layer engines verification log}]{logs/test_hal.txt}
-\lstinputlisting[style=logstyle, caption={Single-button gesture decoder test log}]{logs/test_gesture.txt}
-\lstinputlisting[style=logstyle, caption={Two-button front-panel simulation test log}]{logs/test_two_button.txt}
-\lstinputlisting[style=logstyle, caption={UART status line telemetry test log}]{logs/test_ui_text.txt}
+\lstinputlisting[style=logstyle, caption={Multi-gesture button decoder verification log}]{logs/test_gesture.txt}

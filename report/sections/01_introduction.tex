@@ -45,7 +45,7 @@ the STOP button is pressed twice (force to stop).
 \subsection{Six Families of Embedded Design Challenges}
 \label{sec:six}
 
-Marwedel \cite{marwedel} and the CO3053 lecture series \cite{lec} classify embedded system engineering
+Marwedel~\cite{marwedel} and the CO3053 lecture series~\cite{lec} classify embedded system engineering
 challenges into six distinct families. Because an embedded architecture cannot optimize all objectives
 simultaneously, the team established a strict priority ranking for the washing machine control unit
 (Table~\ref{tab:six}). When two design constraints compete, the higher-ranked family strictly governs the
@@ -56,7 +56,8 @@ architectural decision.
   \caption{Priority ranking of the six embedded design challenge families}
   \label{tab:six}
   \small
-  \begin{tabularx}{\linewidth}{l c Y}
+  \renewcommand{\arraystretch}{1.2}
+  \begin{tabularx}{\linewidth}{L{4.4cm} C{2.2cm} Y}
     \toprule
     \textbf{Challenge family} & \textbf{Rank} & \textbf{Manifestation in the Washing Machine Control Unit} \\
     \midrule
@@ -86,7 +87,7 @@ architectural decision.
 \subsection{Real-Time Taxonomy: Soft vs. Hard Real-Time Domains}
 \label{sec:realtime}
 
-According to Kopetz's real-time systems taxonomy \cite{kopetz}, timing constraints in embedded controllers are
+According to Kopetz's real-time systems taxonomy~\cite{kopetz}, timing constraints in embedded controllers are
 classified into hard and soft real-time domains based on the severity of missing a deadline:
 
 \begin{itemize}
@@ -129,44 +130,45 @@ quantified engineering parameters:
     and $f_{\text{RLED}} = 2.0\,\text{Hz} \pm 1\%$ ($250\,\text{ms}$ ON / $250\,\text{ms}$ OFF), maintained with zero cumulative phase drift.
 \end{enumerate}
 
-\subsection{Scope of Deliverables}
+\subsection{Engineering Scope and Document Organization}
 
 The scope of this project focuses squarely on the \textbf{embedded control logic, timing engine, and hardware abstraction}.
-The concrete technical deliverables comprise:
+In accordance with course regulations, this comprehensive technical report serves as the sole, self-contained project submission, encapsulating the complete engineering lifecycle from formal mathematical specification to bare-metal hardware validation. The core engineering pillars documented within this report comprise:
 
 \begin{itemize}
-  \item A fully portable, hardware-independent FSM core written in strict C99 (\code{src/fsm/washing_machine_fsm.c}),
+  \item A fully portable, hardware-independent FSM core written in strict C99,
     satisfying MISRA-C:2012 safety standards with zero dynamic memory allocation.
   \item Non-blocking hardware abstraction layer (HAL) engines: software integrator debouncers, pulse-train coin decoders,
-    zero-drift LED waveform blinkers, and single-button multi-gesture decoders (\code{src/hal/}).
-  \item Production-grade bare-metal firmware targeting the \textbf{WeAct Studio MiniSTM32H7xx (STM32H750VBT6)} core board,
+    zero-drift LED waveform blinkers, and single-button multi-gesture decoders.
+  \item Production-grade bare-metal firmware targeting the \textbf{WeAct MiniSTM32H7xx (STM32H750VBT6)} core board,
     featuring direct hardware register configuration, a $0.96''$ ST7735 color TFT LCD dashboard ($160\times 80$), and
-    an asynchronous USART1 diagnostic console (\code{board/weact_h750/}).
+    an asynchronous USART1 diagnostic console.
   \item An automated verification testbench executing 94 unit tests across five distinct test suites, achieving 100\%
     specification requirement and state transition coverage.
-  \item Interactive terminal testbenches and Wokwi simulation models for browser-based visual validation (\code{sim/}).
+  \item Interactive terminal testbenches and Wokwi simulation models for browser-based visual validation.
 \end{itemize}
 
 \begin{table}[H]
   \centering
-  \caption{Primary Project Deliverables and Verification Artifacts}
-  \label{tab:deliverables}
+  \caption{Engineering Subsystems Documented in this Report}
+  \label{tab:system_scope}
   \small
-  \begin{tabularx}{\linewidth}{l p{4.2cm} X}
+  \renewcommand{\arraystretch}{1.2}
+  \begin{tabularx}{\linewidth}{L{4.6cm} C{2.4cm} Y}
     \toprule
-    \textbf{Deliverable} & \textbf{Artifact Identifier / Location} & \textbf{Technical Description} \\
+    \textbf{Engineering Subsystem} & \textbf{Report Reference} & \textbf{Technical Scope and Documented Coverage} \\
     \midrule
-    Source Code Repository & GitHub: \cite{projectrepo} & Full portable C99 codebase, HAL drivers, test suites, and build scripts \\
-    Target Firmware Image  & \code{build/h750/washer.elf} & Bare-metal ARM Cortex-M7 executable image for WeAct STM32H750 \\
-    In-System Video Demo   & YouTube: \url{https://youtube.com/shorts/ZFKOPDyJHqQ} & Physical hardware execution and behavioral validation (Section~\ref{sec:video}) \\
-    Verification Testbench & 94 Automated Tests & Core FSM, HAL engines, gesture decoders, front panel, and UI text \\
-    Formal Specification  & Technical Report (this document) & Requirements traceability, mathematical modeling, and experimental results \\
+    Mathematical EFSM Model & Sections~\ref{sec:analysis}--\ref{sec:fsm} & 5-tuple formalization, invariant proofs, complete transition function $\delta$ \\
+    Hardware Abstraction Layer & Sections~\ref{sec:hardware}, \ref{sec:arch}, \ref{sec:timing} & Integrator debouncing, pulse-train coin recognition, zero-drift waveform generation \\
+    Target Firmware System & Sections~\ref{sec:hardware}, \ref{sec:arch}, \ref{sec:impl} & Bare-metal STM32H750 register initialization, ST7735 LCD graphic dashboard, USART telemetry \\
+    Automated Verification Harness & Sections~\ref{sec:testplan}--\ref{sec:results} & 94 automated unit tests across 5 suites with 100\% requirement and state transition coverage \\
+    Physical In-System Validation & Section~\ref{sec:video} \& Section~\ref{sec:results} & Real-time hardware demonstration video record and oscilloscope execution telemetry \\
     \bottomrule
   \end{tabularx}
 \end{table}
 
-\noindent\textbf{Out-of-Scope Demarcation:}
-High-voltage AC triacs, multi-phase inverter bridge drivers for 220\,V drum motors, solenoid inlet valves, and peristaltic
+\paragraph{Out-of-Scope Demarcation:}
+Auxiliary high-voltage AC triacs, multi-phase inverter bridge drivers for 220\,V drum motors, solenoid inlet valves, and peristaltic
 drain pumps are not driven directly by power silicon. Instead, their actuation commands are produced via the
 \code{hal_output_callbacks_t} interface and visualized via physical LEDs, the ST7735 LCD graphic dashboard, and USART
 telemetry frames.

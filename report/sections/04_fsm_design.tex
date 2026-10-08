@@ -35,7 +35,10 @@ operating over an extended context space $\mathcal{C}$.
         \end{itemize}
   \item \textbf{Input Event Alphabet ($\Sigma$):} A discrete alphabet of ten mutually exclusive events:
         \begin{equation}
-          \Sigma = \big\{ \text{COIN}_{10}, \text{COIN}_{20}, \text{COIN}_{50}, \text{RUN}, \text{PAUSE}, \text{STOP}, \text{TICK}_{1\text{s}}, \text{TICK}_{1\text{ms}}, \text{FAULT}, \text{CLEARED} \big\}
+        \begin{aligned}
+          \Sigma = \big\{ & \text{COIN}_{10}, \text{COIN}_{20}, \text{COIN}_{50}, \text{RUN}, \text{PAUSE}, \\
+                          & \text{STOP}, \text{TICK}_{1\text{s}}, \text{TICK}_{1\text{ms}}, \text{FAULT}, \text{CLEARED} \big\}
+        \end{aligned}
         \end{equation}
   \item \textbf{Output Alphabet ($\Lambda$):} The Cartesian product of indicator, actuator, and notification domains:
         \begin{equation}
@@ -55,7 +58,7 @@ The machine $\mathcal{M}$ is architecturally classified as a \textbf{Hybrid Moor
         are strictly invariant within a given qualitative state $s \in \mathcal{S}$ (and phase partitioned within $t$).
         They depend solely on the current state $s$, satisfying $\omega_{\text{Moore}}: \mathcal{S} \to \Lambda_{\text{steady}}$.
   \item \textbf{Mealy Property (Transient Transition Actions):} Side effects such as clearing the coin balance
-        ($b := 0$), dispensing refunded coins ($\code{return_coins}(b)$), and arming the double-press window timer
+        ($b := 0$), dispensing pre-run refunded coins, and arming the double-press window timer
         ($w := 1500\,\text{ms}$) are instantaneous transient actions executed strictly upon the edge of transition
         firing, satisfying $\omega_{\text{Mealy}}: (\mathcal{S} \times \mathcal{C}) \times \Sigma \to \Lambda_{\text{transient}}$.
 \end{itemize}
@@ -69,69 +72,85 @@ Transition identifiers T$xx$ correspond bijectively to Table~\ref{tab:transition
 \tikzset{
   state/.style={circle, draw, thick, minimum size=2.3cm, align=center, font=\small\bfseries},
   tr/.style={-{Stealth[length=2.6mm]}, thick},
-  lbl/.style={font=\scriptsize, align=center, fill=white, inner sep=1.5pt},
+  lbl/.style={font=\footnotesize, align=center, fill=white, inner sep=2.5pt},
 }
 
 \begin{figure}[H]
   \centering
   \resizebox{\linewidth}{!}{%
   \begin{tikzpicture}
-    \node[state, fill=stIdle]  (S) at (0,0)    {STANDBY\\[-1pt]\scriptsize\mdseries R:ON B:OFF};
-    \node[state, fill=stIdle]  (C) at (6,4.2)  {COLLECTING\\[-1pt]\scriptsize\mdseries R:ON B:OFF};
-    \node[state, fill=stReady] (R) at (14,4.2) {READY\\[-1pt]\scriptsize\mdseries R:OFF B:ON};
-    \node[state, fill=stRun]   (U) at (14,-4.2){RUNNING\\[-1pt]\scriptsize\mdseries R:OFF B:1Hz};
-    \node[state, fill=stPause] (P) at (6,-4.2) {PAUSED\\[-1pt]\scriptsize\mdseries R:OFF B:ON};
+    % Discrete FSM States (generously spaced: S at (1,0), C at (7.5, 3.6), R at (15.5, 3.6), U at (15.5, -3.2), P at (7.5, -3.2))
+    \node[state, fill=stIdle]  (S) at (1.0, 0.0)   {STANDBY\\[-1pt]\footnotesize\mdseries R:ON B:OFF};
+    \node[state, fill=stIdle]  (C) at (7.5, 3.6)   {COLLECTING\\[-1pt]\footnotesize\mdseries R:ON B:OFF};
+    \node[state, fill=stReady] (R) at (15.5, 3.6)  {READY\\[-1pt]\footnotesize\mdseries R:OFF B:ON};
+    \node[state, fill=stRun]   (U) at (15.5,-3.2)  {RUNNING\\[-1pt]\footnotesize\mdseries R:OFF B:1Hz};
+    \node[state, fill=stPause] (P) at (7.5,-3.2)   {PAUSED\\[-1pt]\footnotesize\mdseries R:OFF B:ON};
 
-    \begin{scope}[on background layer]
-      % power-on
-      \draw[tr] (-3.6,0) -- node[lbl, above=3pt, pos=0.4]{power-on} (S);
+    % Power-on initialization
+    \draw[tr] (-1.8, 0.0) -- node[lbl, above=2pt, pos=0.4]{Power-On} (S.west);
 
-      % payment
-      \draw[tr] (S) -- node[lbl, sloped, above=2pt, pos=0.5]{T01: COIN($v$) [$b{+}v<50$]} (C);
-      \draw[tr, dashed] (C) to[out=180,in=95] node[lbl, sloped, above=2pt, pos=0.5]{T06: STOP\,$\times$2 / return $b$} (S);
-      \draw[tr] (C) -- node[lbl, above=2pt]{T04: COIN($v$) [$b{+}v\geq 50$]} (R);
-      \draw[tr] (S) to[out=10,in=200] node[lbl, above=2pt, pos=0.55]{T02: COIN($v$) [$b{+}v\geq 50$]} (R);
-      \draw[tr, dashed] (R) to[out=230,in=330] node[lbl, below=2pt, pos=0.45]{T06: STOP\,$\times$2 / return $b$} (S);
-      \draw[tr] (C) to[out=65,in=115,looseness=5] node[lbl, above]{T03: COIN($v$) [$b{+}v<50$] / $b{+}{=}v$} (C);
-      \draw[tr] (R) to[out=65,in=115,looseness=5] node[lbl, above]{T07: COIN($v$) / $b{+}{=}v$ (surplus)} (R);
+    % S -> C (T01) sloped above curve in open northern quadrant; high-arch C -> S (T06)
+    \draw[tr] (S.north) to[bend left=16] node[lbl, sloped, above=2pt, pos=0.45]{T01: COIN [$<50$¢]} (C.west);
+    \draw[tr, dashed] (C.north west) to[out=145, in=60, looseness=1.4] node[lbl, sloped, above=2pt, pos=0.5]{T06: 2$\times$STOP / Refund} (S.north west);
+    
+    % C -> R (T04)
+    \draw[tr] (C.east) -- node[lbl, above=2pt]{T04: COIN [$\ge 50$¢]} (R.west);
+    
+    % Central corridor: S -> R (T02) routed into eastern quadrant (x ~ 11.5)
+    \draw[tr] (S.east) .. controls (5.0, 0.8) and (10.5, 0.8) .. node[lbl, sloped, above=2pt, pos=0.7]{T02: COIN [$\ge 50$¢]} (R.south west);
+    
+    % Central corridor: R -> S (T06) routed below axis into western quadrant (x ~ 6.0)
+    \draw[tr, dashed] (R.south west) .. controls (10.5, -0.6) and (5.0, -0.6) .. node[lbl, sloped, below=2pt, pos=0.4]{T06: 2$\times$STOP / Refund} (S.east);
+    
+    % Self loops for C and R (top, out=60, in=100)
+    \draw[tr] (C) to[out=60, in=100, looseness=3.6] node[lbl, above=2pt]{T03: COIN [$<50$]} (C);
+    \draw[tr] (R) to[out=60, in=100, looseness=3.6] node[lbl, above=2pt]{T07: COIN (surplus)} (R);
 
-      % run / pause
-      \draw[tr] (R) -- node[lbl, right=3pt, align=left]{T08: RUN\\/ $b{:=}0$, $t{:=}T$,\\lock door, motor ON} (U);
-      \draw[tr] (U) to[bend left=14] node[lbl, below=2pt]{T09: PAUSE / motor OFF} (P);
-      \draw[tr] (P) to[bend left=14] node[lbl, above=2pt]{T14: RUN / resume ($t$ kept)} (U);
-      \draw[tr] (U) to[out=-25,in=25,looseness=5] node[lbl, right, align=left]{T10: TICK$_{1s}$ [$t>1$]\\/ $t{-}{-}$, update phase} (U);
-      \draw[tr] (P) to[out=-65,in=-115,looseness=5] node[lbl, below]{T15: TICK$_{1s}$ [$t>1$] / $t{-}{-}$ (timer continues)} (P);
+    % Cycle execution (R -> U vertical drop)
+    \draw[tr] (R.south) -- node[lbl, right=6pt, pos=0.5]{T08: RUN / Start} (U.north);
+    
+    % RUNNING <-> PAUSED
+    \draw[tr] (U.north west) to[bend right=22] node[lbl, above=2pt, pos=0.5]{T09: PAUSE} (P.north east);
+    \draw[tr] (P.east) -- node[lbl, above=2pt, pos=0.5]{T14: RUN / Resume} (U.west);
+    
+    % Self loop for U (right side)
+    \draw[tr] (U) to[out=20, in=-40, looseness=3.6] node[lbl, right=6pt]{T10: 1\,s Tick [$t > 1$]} (U);
 
-      % end of cycle (upright labels, zero slant collision)
-      \draw[tr] (P) to[bend left=8] node[lbl, above right=1pt, pos=0.45, align=center]{T16: TICK$_{1s}$ [$t=1$]\\[1pt]T13: STOP\,$\times$2} (S);
-      \draw[tr] (U) .. controls (12,-11) and (-2,-10) .. node[lbl, pos=0.55, below=2pt]{T11: TICK$_{1s}$ [$t=1$] / cycle complete \;|\; T13: STOP\,$\times$2 / force stop} (S);
-    \end{scope}
-  \end{tikzpicture}}
+    % Self loop for P (directed straight down at y=-5.0)
+    \draw[tr] (P.south) to[out=-60, in=-120, looseness=3.5] node[lbl, below=2pt, pos=0.5]{T15: 1\,s Tick [$t > 1$]} (P.south);
+
+    % P -> S return transition
+    \draw[tr] (P.west) to[bend left=12] node[lbl, above=2pt, pos=0.5]{T16: $t=1$ \;|\; T13: 2$\times$STOP} (S.south east);
+
+    % Deep bottom return loop U -> S
+    \draw[tr] (U.south) .. controls (13.0, -7.0) and (2.5, -7.0) .. node[lbl, below=2pt, pos=0.5]{T11: $t=1$ \;|\; T13: 2$\times$STOP} (S.south);
+  \end{tikzpicture}%
+  }
   \caption{Formal state transition diagram: Nominal operation ($\text{T05}$ and $\text{T12}$ denote internal window arming)}
   \label{fig:fsm-main}
 \end{figure}
 
 \begin{figure}[H]
   \centering
-  \resizebox{0.95\linewidth}{!}{%
+  \resizebox{\linewidth}{!}{%
   \begin{tikzpicture}
-    \node[draw, thick, rounded corners, fill=gray!10, align=center, minimum width=3.8cm, minimum height=1.8cm, font=\small]
-      (ANY) at (0,0) {Any State $X \neq \text{ERROR}$\\\scriptsize STANDBY, COLLECTING,\\\scriptsize READY, RUNNING, PAUSED};
-    \node[state, fill=stErr] (E) at (7.6,0) {ERROR\\[-1pt]\scriptsize\mdseries R:2Hz B:OFF};
-    \node[state, fill=stPause, minimum size=2cm] (P) at (16.0,2.6) {PAUSED};
-    \node[draw, thick, rounded corners, fill=stIdle, align=center, minimum width=3.2cm, minimum height=1.4cm, font=\small\bfseries]
-      (I) at (16.0,-2.6) {STANDBY /\\COLLECTING /\\READY};
+    % Discrete state blocks with generous spacing (ANY at x=0.0, ERROR at x=7.6, targets at x=14.2)
+    \node[draw, thick, rounded corners, fill=white, draw=gray!70!black, align=center, text width=2.8cm, minimum height=1.6cm, font=\small]
+      (ANY) at (0.0, 0.6) {Any State $X \neq \text{ERROR}$\\[2pt]\footnotesize STANDBY, COLLECTING,\\\footnotesize READY, RUNNING, PAUSED};
+    \node[state, fill=stErr] (E) at (7.6, 0.6) {ERROR\\[-1pt]\footnotesize\mdseries R:2Hz B:OFF};
+    \node[state, fill=stPause, minimum size=2.1cm] (P) at (14.2, 2.2) {PAUSED};
+    \node[draw, thick, rounded corners, fill=stIdle, align=center, text width=3.4cm, minimum height=1.5cm, font=\small\bfseries]
+      (I) at (14.2, -1.2) {\textbf{STANDBY /}\\[2pt]\textbf{COLLECTING /}\\[2pt]\textbf{READY}};
 
-    \begin{scope}[on background layer]
-      \draw[tr] (ANY) -- node[lbl, above=3pt]{T17: FAULT\\/ save $X$, all actuators OFF,\\unlock door, RLED 2\,Hz} (E);
-      \draw[tr] (E) to[out=65,in=115,looseness=5] node[lbl, above]{T18/T19: TICK$_{1s}$ [cycle in progress] / $t{-}{-}$} (E);
-      \draw[tr] (E) -- node[lbl, above=3pt, pos=0.52]{T20: CLEARED [cycle $\wedge$ $t>0$]} (P);
-      \draw[tr] (E) -- node[lbl, below=3pt, pos=0.55]{T21: CLEARED [otherwise] / restore by $b$} (I);
-    \end{scope}
-    \node[font=\scriptsize, align=left, text width=6cm, anchor=north] at (3.8,-2.0)
-      {RUN, PAUSE, STOP and coins are ignored in ERROR (lock-out).\\
-       ``cycle in progress'' $\Leftrightarrow X \in \{$RUNNING, PAUSED$\}$.};
-  \end{tikzpicture}}
+    \draw[tr] (ANY) -- node[lbl, above=3pt, pos=0.45]{T17: FAULT} (E);
+    \draw[tr] (E) to[out=65, in=115, looseness=4.0] node[lbl, above=2pt]{T18/T19: 1\,s Tick [Cycle]} (E);
+    \draw[tr] (E.north east) -- node[lbl, sloped, above=3pt, pos=0.45]{T20: CLEARED [$t > 0$]} (P.west);
+    \draw[tr] (E.south east) -- node[lbl, sloped, below=3pt, pos=0.45]{T21: CLEARED [$t = 0$]} (I.west);
+    \node[font=\footnotesize, align=center, text width=13.0cm, fill=white, draw=gray!50, rounded corners, inner sep=4pt] at (7.1, -3.2)
+      {Safety Lock-Out: RUN, PAUSE, STOP, and Coins are rejected during ERROR mode.\\
+       Active cycle condition: Saved pre-fault state $X \in \{\text{RUNNING}, \text{PAUSED}\}$.};
+  \end{tikzpicture}%
+  }
   \caption{Formal state transition diagram: Asynchronous safety fault handling and context restoration}
   \label{fig:fsm-error}
 \end{figure}
@@ -141,7 +160,7 @@ Transition identifiers T$xx$ correspond bijectively to Table~\ref{tab:transition
 \begingroup
 \small
 \setlength{\tabcolsep}{3pt}
-\begin{longtable}{L{0.8cm}L{2.75cm}L{1.9cm}L{2.1cm}L{2.6cm}L{4.15cm}}
+\begin{longtable}{L{0.8cm}L{2.7cm}L{1.9cm}L{2.5cm}L{2.3cm}L{4.1cm}}
   \caption{Complete and deterministic state transition table}\label{tab:transitions}\\
   \toprule
   \textbf{ID} & \textbf{Current State} & \textbf{Input Event} & \textbf{Guard Condition} & \textbf{Next State} & \textbf{Action / Output Side Effects} \\
@@ -158,7 +177,7 @@ Transition identifiers T$xx$ correspond bijectively to Table~\ref{tab:transition
   T03 & \st{COLLECTING} & COIN($v$) & $b+v < 50$ & \st{COLLECTING} & $b \mathrel{+}= v$; $n := 0$; $w := 0$ \\
   T04 & \st{COLLECTING} & COIN($v$) & $b+v \ge 50$ & \st{READY}      & $b \mathrel{+}= v$; RLED \code{OFF}, BLED \code{ON} \\
   T05 & \st{COLLECTING}, \st{READY} & STOP & $n = 0$ & (same) & $n := 1$; $w := 1500\,\text{ms}$ \\
-  T06 & \st{COLLECTING}, \st{READY} & STOP & $n = 1 \land w > 0$ & \st{STANDBY} & \code{return_coins(b)}; $b := 0$; $n := 0$; $w := 0$ \\
+  T06 & \st{COLLECTING}, \st{READY} & STOP & $n = 1 \land w > 0$ & \st{STANDBY} & Refund deposit $b$; $b := 0$; $n := 0$; $w := 0$ \\
   T07 & \st{READY}      & COIN($v$) & -- & \st{READY}      & $b \mathrel{+}= v$ (surplus deposit forfeited on RUN) \\
   T08 & \st{READY}      & RUN       & -- & \st{RUNNING}    & $b := 0$ (no refund); $t := T$; door \code{LOCKED}; motor \code{AGITATE} \\
   T09 & \st{RUNNING}    & PAUSE     & -- & \st{PAUSED}     & motor, pump \code{OFF}; BLED \code{ON}; door stays \code{LOCKED}; \textbf{$t$ continues} \\
@@ -207,7 +226,7 @@ against the implementation in Table~\ref{tab:event-matrix}:
         \begin{equation}
           \delta((s, c), e) = (s, c) \quad \text{and} \quad \omega_{\text{Mealy}}((s, c), e) = \emptyset
         \end{equation}
-        The function \code{wm_fsm_dispatch_event()} cleanly returns \code{false}, discarding the input
+        The transition dispatcher cleanly filters the event, discarding the input
         with zero mutation of state or actuator outputs.
   \item \textbf{Deadlock Freedom:} The state graph contains no sink states. From any state $s \in \mathcal{S}$,
         either an internal timeout ($\text{TICK}_{1\text{s}}$), an explicit user action ($\text{STOP} \times 2$),
@@ -235,7 +254,7 @@ Therefore, $\mathcal{M}$ is complete, deadlock-free, and deterministic. \hfill $
     \bottomrule
   \end{tabular}}
   \vspace{3pt}
-  \raggedright\scriptsize\emph{Note:} \text{ign} denotes deterministic event filtering without state or context mutation (verified in test \code{TC-27}).
+  \raggedright\scriptsize\emph{Note:} \text{ign} denotes deterministic event filtering without state or context mutation.
 \end{table}
 
 \subsection{Moore Output Function Mapping}

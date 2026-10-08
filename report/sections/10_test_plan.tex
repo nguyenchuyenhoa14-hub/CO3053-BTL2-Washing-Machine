@@ -8,7 +8,7 @@
 In accordance with rigorous embedded systems engineering principles~\cite{marwedel,kopetz}, verification was conducted following a dual-tier validation hierarchy:
 \begin{enumerate}
   \item \textbf{Host-Platform Automated Unit \& Regression Testbench (PC Level):}
-        The core FSM logic (\code{washing_machine_fsm.c}), timing blinkers (\code{hal_led_blinker.c}), switch debouncers (\code{hal_button_engine.c}), and multi-gesture decoders (\code{hal_button_gesture.c}) are compiled natively using host \code{gcc} with strict pedagogical and MISRA compliance flags (\code{-Wall -Wextra -Werror -pedantic -std=c99 -O2}). A high-performance \textbf{Mock HAL} (\code{mock_hal.c}) intercepts all physical peripheral interactions. Logical clock progression is decoupled from physical wall-clock time: a full 30-minute ($1{,}800{,}000$\,ms) wash cycle is simulated in less than $0.8$\,ms of CPU time while guaranteeing deterministic, cycle-accurate event sequencing.
+        The core FSM logic, timing blinkers, switch debouncers, and multi-gesture decoders are compiled natively using host GCC under strict compiler flags (\code{-Wall -Wextra -Werror -pedantic -std=c99 -O2}). A high-performance \textbf{Mock HAL} intercepts all physical peripheral interactions. Logical clock progression is decoupled from physical wall-clock time: a full 30-minute ($1{,}800{,}000$\,ms) wash cycle is simulated in less than $0.8$\,ms of CPU time while guaranteeing deterministic, cycle-accurate event sequencing.
   \item \textbf{Target-Hardware In-System Benchmark (WeAct STM32H750VBT6 Level):}
         The complete bare-metal firmware image is flashed via USB-DFU to the STM32H750 target running at $400$\,MHz. Real-world validation confirms debouncer stability against mechanical switch contact bounce, ST7735 LCD SPI transmission determinism, TIM1 PWM backlight stability, and UART telemetry stream integrity under actual electrical operation.
 \end{enumerate}
@@ -19,8 +19,10 @@ Table~\ref{tab:rtm} provides a bidirectional mapping linking every functional re
 
 \begingroup
 \small
-\setlength{\tabcolsep}{3.5pt}
-\begin{longtable}{L{1.3cm}L{3.9cm}L{3.8cm}L{3.8cm}L{3.0cm}}
+\newcommand{\cfile}[1]{\texttt{\footnotesize\nolinkurl{#1}}}
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.18}
+\begin{longtable}{C{1.1cm}L{3.9cm}L{3.3cm}L{4.0cm}L{2.8cm}}
   \caption{Formal Requirements Traceability Matrix (RTM)}\label{tab:rtm}\\
   \toprule
   \textbf{Req. ID} & \textbf{Requirement Specification} & \textbf{Implementation Artifact} & \textbf{Verification Method} & \textbf{Traceable Tests} \\
@@ -32,34 +34,34 @@ Table~\ref{tab:rtm} provides a bidirectional mapping linking every functional re
   \endhead
   \bottomrule
   \endfoot
-  FR-01 & Coin acceptance (10\cent, 20\cent, 50\cent) & \code{hal_button_engine.c} & Pulse train decoding \& burst queue & TC-01, TC-02, TC-03, TC-31, HAL-02 \\
-  FR-02 & Minimum activation threshold (50\cent) & \code{washing_machine_fsm.c} & Boundary guard evaluation ($B \ge 50$) & TC-02, TC-05, TC-31, 2BTN-05 \\
-  FR-03 & Immediate balance clear upon RUN & \code{washing_machine_fsm.c} & Atomic state mutation ($B \leftarrow 0$) & TC-04, TC-13, TC-21, 2BTN-06 \\
-  FR-04 & 30-minute countdown cycle ($1800$\,s) & \code{washing_machine_fsm.c} & Non-blocking SysTick 1\,s prescaler & TC-04, TC-12, TC-21 \\
-  FR-05 & Dual-colour LED status encoding & \code{hal_led_blinker.c} & Periodic waveform phase tracking & TC-01, TC-02, TC-04, TC-06, HAL-03 \\
-  FR-06 & Actuator cutoff with continuous timer & \code{washing_machine_fsm.c} & Actuator trip assertion \& clock soak & TC-06, TC-07, TC-08, TC-29 \\
-  FR-07 & Seamless cycle resumption from PAUSED & \code{washing_machine_fsm.c} & Context preservation invariant check & TC-06, TC-07, TC-14, GEST-17 \\
-  FR-08 & Double-press STOP ($T_{\text{double}} \le 1.5$\,s) & \code{hal_button_gesture.c} & Sub-ms window boundary ($1499$ vs $1501$\,ms) & TC-09, TC-10, TC-11, TC-19, TC-22 \\
-  FR-09 & Automatic termination at $t_{\text{remain}} = 0$ & \code{washing_machine_fsm.c} & Zero-timer guard condition transition & TC-08, TC-12, TC-21, TC-29 \\
-  FR-10 & Standby visual indication (RLED Solid ON) & \code{washing_machine_fsm.c} & Static Moore output vector assertion & TC-01, TC-04, TC-12, TC-21, TC-31 \\
-  FR-11 & Hardware fault trip and visual alarm & \code{hal_led_blinker.c} & Fault injection \& $2.0$\,Hz alarm strobe & TC-13, TC-16, TC-17, TC-24, TC-33 \\
+  FR-01 & Coin acceptance (10\cent, 20\cent, 50\cent) & \cfile{hal_button_engine.c} & Pulse train decoding \& burst queue & TC-01, TC-02, TC-03, TC-31, HAL-02 \\
+  FR-02 & Minimum activation threshold (50\cent) & \cfile{washing_machine_fsm.c} & Boundary guard evaluation ($B \ge 50$) & TC-02, TC-05, TC-31, 2BTN-05 \\
+  FR-03 & Immediate balance clear upon RUN & \cfile{washing_machine_fsm.c} & Atomic state mutation ($B \leftarrow 0$) & TC-04, TC-13, TC-21, 2BTN-06 \\
+  FR-04 & 30-minute countdown cycle ($1800$\,s) & \cfile{washing_machine_fsm.c} & Non-blocking SysTick 1\,s prescaler & TC-04, TC-12, TC-21 \\
+  FR-05 & Dual-colour LED status encoding & \cfile{hal_led_blinker.c} & Periodic waveform phase tracking & TC-01, TC-02, TC-04, TC-06, HAL-03 \\
+  FR-06 & Actuator cutoff with continuous timer & \cfile{washing_machine_fsm.c} & Actuator trip assertion \& clock soak & TC-06, TC-07, TC-08, TC-29 \\
+  FR-07 & Seamless cycle resumption from PAUSED & \cfile{washing_machine_fsm.c} & Context preservation invariant check & TC-06, TC-07, TC-14, GEST-17 \\
+  FR-08 & Double-press STOP ($T_{\text{double}} \le 1.5$\,s) & \cfile{hal_button_gesture.c} & Sub-ms window boundary ($1499$ vs $1501$\,ms) & TC-09, TC-10, TC-11, TC-19, TC-22 \\
+  FR-09 & Automatic termination at $t_{\text{remain}} = 0$ & \cfile{washing_machine_fsm.c} & Zero-timer guard condition transition & TC-08, TC-12, TC-21, TC-29 \\
+  FR-10 & Standby visual indication (RLED Solid ON) & \cfile{washing_machine_fsm.c} & Static Moore output vector assertion & TC-01, TC-04, TC-12, TC-21, TC-31 \\
+  FR-11 & Hardware fault trip and visual alarm & \cfile{hal_led_blinker.c} & Fault injection \& $2.0$\,Hz alarm strobe & TC-13, TC-16, TC-17, TC-24, TC-33 \\
   \midrule
-  A1 & Maximum double-stop window ($1500$\,ms) & \code{washing_machine_config.h} & Microsecond clock simulation & TC-10, TC-19, TC-22, GEST-11 \\
-  A2 & Premature RUN rejection ($B < 50$\cent) & \code{washing_machine_fsm.c} & Negative sub-threshold injection & TC-05, 2BTN-08 \\
-  A3 & Coin lockout during active wash/fault & \code{washing_machine_fsm.c} & Mid-cycle coin pulse masking test & TC-15, TC-17, 2BTN-15 \\
-  A4 & Actuator safety interlock ($\text{Agit} \land \text{Spin} = \emptyset$) & \code{board_h750.c} & Hardware interlock assertion check & TC-26, HAL-04 \\
-  A5 & Modulo phase-preserving blinker & \code{hal_led_blinker.c} & Phase continuity \& frequency audit & HAL-03 \\
-  A6 & Pre-wash cancellation and deposit return & \code{washing_machine_fsm.c} & Pre-wash accounting guard test & TC-18, TC-32, 2BTN-17 \\
-  A7 & Persistent timer timeout during pause & \code{washing_machine_fsm.c} & Extended soak simulation until $t=0$ & TC-08, TC-29 \\
-  A8 & Context-preserving fault recovery & \code{washing_machine_fsm.c} & Fault clear \& state restoration test & TC-13, TC-33, TC-34, GEST-19 \\
-  A9 & Two-phase wash profile ($5/6$ Agit, $1/6$ Spin) & \code{washing_machine_fsm.c} & Sub-cycle phase transition boundary & TC-26, TC-28, TC-29 \\
-  A10 & Monotonic SysTick catch-up loop & \code{main_h750.c} & Blocking super-loop jitter injection & TC-07, TC-12, HAL-01, HAL-03 \\
+  A1 & Maximum double-stop window ($1500$\,ms) & \cfile{washing_machine_config.h} & Microsecond clock simulation & TC-10, TC-19, TC-22, GEST-11 \\
+  A2 & Premature RUN rejection ($B < 50$\cent) & \cfile{washing_machine_fsm.c} & Negative sub-threshold injection & TC-05, 2BTN-08 \\
+  A3 & Coin lockout during active wash/fault & \cfile{washing_machine_fsm.c} & Mid-cycle coin pulse masking test & TC-15, TC-17, 2BTN-15 \\
+  A4 & Actuator safety interlock ($\text{Agit} \land \text{Spin} = \emptyset$) & \cfile{board_h750.c} & Hardware interlock assertion check & TC-26, HAL-04 \\
+  A5 & Modulo phase-preserving blinker & \cfile{hal_led_blinker.c} & Phase continuity \& frequency audit & HAL-03 \\
+  A6 & Pre-wash cancellation and deposit return & \cfile{washing_machine_fsm.c} & Pre-wash accounting guard test & TC-18, TC-32, 2BTN-17 \\
+  A7 & Persistent timer timeout during pause & \cfile{washing_machine_fsm.c} & Extended soak simulation until $t=0$ & TC-08, TC-29 \\
+  A8 & Context-preserving fault recovery & \cfile{washing_machine_fsm.c} & Fault clear \& state restoration test & TC-13, TC-33, TC-34, GEST-19 \\
+  A9 & Two-phase wash profile ($5/6$ Agit, $1/6$ Spin) & \cfile{washing_machine_fsm.c} & Sub-cycle phase transition boundary & TC-26, TC-28, TC-29 \\
+  A10 & Monotonic SysTick catch-up loop & \cfile{main_h750.c} & Blocking super-loop jitter injection & TC-07, TC-12, HAL-01, HAL-03 \\
   \midrule
-  NFR-01 & Mechanical switch debounce ($30$\,ms) & \code{hal_button_engine.c} & $1$\,kHz contact bounce chatter stress & HAL-01, GEST-02 \\
-  NFR-02 & Zero blocking delays in super-loop & \code{main_h750.c} & Static code audit \& non-blocking test & HAL-03, Board Telemetry \\
-  NFR-03 & Deterministic zero heap memory ($0$\,B) & \code{stm32h750.ld} & Static ELF mapfile symbol inspection & TC-20, TC-21, Mapfile Audit \\
-  NFR-04 & HAL architectural decoupling (DIP) & \code{src/hal/*.h} & Cross-platform headless test build & TC-20, HAL-06 \\
-  NFR-05 & Worst-case response latency ($\le 30$\,ms) & \code{main_h750.c} & End-to-end event response profiling & HAL-01, GEST-01 \\
+  NFR-01 & Mechanical switch debounce ($30$\,ms) & \cfile{hal_button_engine.c} & $1$\,kHz contact bounce chatter stress & HAL-01, GEST-02 \\
+  NFR-02 & Zero blocking delays in super-loop & \cfile{main_h750.c} & Static code audit \& non-blocking test & HAL-03, Board Telemetry \\
+  NFR-03 & Deterministic zero heap memory ($0$\,B) & \cfile{stm32h750.ld} & Static ELF mapfile symbol inspection & TC-20, TC-21, Mapfile Audit \\
+  NFR-04 & HAL architectural decoupling (DIP) & \cfile{hal_interfaces.h} & Cross-platform headless test build & TC-20, HAL-06 \\
+  NFR-05 & Worst-case response latency ($\le 30$\,ms) & \cfile{main_h750.c} & End-to-end event response profiling & HAL-01, GEST-01 \\
 \end{longtable}
 \endgroup
 
@@ -67,15 +69,15 @@ Table~\ref{tab:rtm} provides a bidirectional mapping linking every functional re
 
 The 94 automated unit tests are partitioned across five specialized test executables:
 \begin{enumerate}
-  \item \textbf{Washing Machine Core FSM Suite (\code{test_washing_machine.c} -- 34 Tests):}
+  \item \textbf{Washing Machine Core FSM Test Suite (34 Tests):}
         Exercises all 6 operational states, 22 transitions, conditional guards, arithmetic overflow protections, timer rollover, rapid state toggling, and corrupted enum handling under MISRA-C Rule 16.4 constraints.
-  \item \textbf{Hardware Abstraction Engine Suite (\code{test_hal_engines.c} -- 6 Tests):}
+  \item \textbf{Hardware Abstraction Engine Verification Suite (6 Tests):}
         Validates the 30\,ms integrating button debouncer against rapid contact bounce (1\,kHz chatter), verifies the pulse-train coin discriminator and circular burst FIFO, proves phase continuity and zero cumulative drift of the 1.0\,Hz and 2.0\,Hz blinker engines, and tests actuator interlock violations.
-  \item \textbf{Single-Key Gesture Recognition Suite (\code{test_gesture.c} -- 32 Tests):}
+  \item \textbf{Single-Key Gesture Recognition Test Suite (32 Tests):}
         Tests multi-gesture temporal classification: short clicks, double-clicks, Stage-1 hold ($600$\,ms), Stage-2 hold ($1200$\,ms), hold-release events, and verifies that the double-stop interval fits deterministically within the FSM window.
-  \item \textbf{Two-Button Front-Panel Dashboard Suite (\code{test_two_button.c} -- 18 Tests):}
+  \item \textbf{Two-Button Front-Panel Dashboard Test Suite (18 Tests):}
         Verifies staged coin accumulation, manual threshold confirmation, change refund calculations, and panel command prioritization.
-  \item \textbf{UI Text Telemetry Suite (\code{test_ui_text.c} -- 4 Tests):}
+  \item \textbf{UI Text Telemetry Output Test Suite (4 Tests):}
         Validates UART formatted status telemetry string generators, bounded buffer safety, and \code{NUL}-termination under MISRA-C Rule 21.3.
 \end{enumerate}
 
@@ -97,8 +99,9 @@ Table~\ref{tab:testcases} outlines the 20 primary test scenarios executed direct
 
 \begingroup
 \small
-\setlength{\tabcolsep}{3.5pt}
-\begin{longtable}{L{0.95cm}L{2.6cm}L{4.1cm}L{4.4cm}L{2.2cm}}
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.18}
+\begin{longtable}{C{1.0cm}L{2.5cm}L{3.4cm}L{5.4cm}L{2.8cm}}
   \caption{Physical System Integration Test Scenarios}\label{tab:testcases}\\
   \toprule
   \textbf{ID} & \textbf{Scenario} & \textbf{Input / Operation on Board} & \textbf{Expected System Behavior} & \textbf{Traceable Tests} \\

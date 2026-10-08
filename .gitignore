@@ -1,35 +1,59 @@
-# Local Workspace Folders (Do not push to GitHub)
+# Local Workspace Folders & Private Data (Do NOT push to GitHub)
 .agents/
-
-# Assignment 1 files (Keep local, do not push to BTL2 repository)
 assignment1/
 
-# Compiled binaries & test runners
+# Compiled Binaries, Objects & Test Runners
 *.exe
 *.o
 *.obj
 *.out
-*.log
-*.aux
-*.toc
-
-# Temporary / OS
-.DS_Store
-Thumbs.db
-
-# Build output
+*.bin
+*.hex
+*.elf
+*.map
+*.d
 build/
+test_runner
+test_hal_runner
 test_gesture_runner
+sim_wm
+demo_wm
+stm32_wm
 
-# Local clone of the WeAct board SDK (721 MB, reference only)
-MiniSTM32H7xx/
-
-# LaTeX report build files
-report/*.fdb_latexmk
-report/*.fls
-report/*.bbl
-report/*.blg
+# LaTeX Compilation Intermediate Artifacts (Keep clean source & final PDF only)
+*.aux
+*.log
+*.toc
+*.lof
+*.lot
+*.out
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.nav
+*.snm
+*.vrb
+report/*.aux
+report/*.log
+report/*.toc
 report/*.lof
 report/*.lot
 report/*.out
+report/*.bbl
+report/*.blg
+report/*.fls
+report/*.fdb_latexmk
 report/*.synctex.gz
+
+# Local Hardware SDK Reference (Large Vendor Repository)
+MiniSTM32H7xx/
+
+# Operating System & Editor Metadata
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.vscode/
+.idea/

@@ -9,8 +9,7 @@ The physical deployment target for the coin-operated washing machine control uni
 \textbf{WeAct Studio MiniSTM32H7xx Core Board}, populated with an \textbf{STM32H750VBT6}
 high-performance microcontroller based on the 32-bit Arm Cortex-M7 core with double-precision
 floating-point unit (FPU), L1 instruction and data caches ($16\,\text{KB} + 16\,\text{KB}$),
-$128\,\text{KB}$ of internal zero-wait-state Flash memory, and $1024\,\text{KB}$ of unified SRAM
-\cite{stm32h750ds,stm32h7rm,weactrepo}.
+$128\,\text{KB}$ of internal zero-wait-state Flash memory, and $1024\,\text{KB}$ of unified SRAM~\cite{stm32h750ds,stm32h7rm,weactrepo}.
 
 The board integrates all fundamental components necessary for autonomous demonstration:
 a user push-button (\code{K1}), a user status LED, a dedicated 8-pin connector for a $0.96''$
@@ -22,7 +21,8 @@ supporting native Device Firmware Upgrade (DFU).
   \caption{Physical hardware resources allocated on the STM32H750 target}
   \label{tab:board}
   \small
-  \begin{tabularx}{\linewidth}{lL{3.8cm}Y}
+  \renewcommand{\arraystretch}{1.18}
+  \begin{tabularx}{\linewidth}{L{3.8cm}L{3.8cm}Y}
     \toprule
     \textbf{Hardware Resource} & \textbf{Operating Mode / Config} & \textbf{Functional Role in Control Architecture} \\
     \midrule
@@ -60,12 +60,14 @@ PLL1 multiplies this base reference into the core frequency through three stages
 \begin{enumerate}
   \item \textbf{Input Division Stage ($\text{DIVM1} = 5$):}
         \begin{equation}
-          f_{\text{ref1}} = \frac{f_{\text{HSE}}}{\text{DIVM1}} = \frac{25.0\,\text{MHz}}{5} = 5.0\,\text{MHz} \quad (\text{within the valid } 4\text{--}8\,\text{MHz PLL range})
+          f_{\text{ref1}} = \frac{f_{\text{HSE}}}{\text{DIVM1}} = \frac{25.0\,\text{MHz}}{5} = 5.0\,\text{MHz}
         \end{equation}
+        This strictly satisfies the $4\text{--}8\,\text{MHz}$ PLL input reference constraint.
   \item \textbf{Voltage-Controlled Oscillator ($\text{DIVN1} = 160$):}
         \begin{equation}
-          f_{\text{VCO1}} = f_{\text{ref1}} \times \text{DIVN1} = 5.0\,\text{MHz} \times 160 = 800.0\,\text{MHz} \quad (\text{within the } 150\text{--}960\,\text{MHz VCO envelope})
+          f_{\text{VCO1}} = f_{\text{ref1}} \times \text{DIVN1} = 5.0\,\text{MHz} \times 160 = 800.0\,\text{MHz}
         \end{equation}
+        This sits safely within the $150\text{--}960\,\text{MHz}$ VCO operational envelope.
   \item \textbf{Primary System Output Division ($\text{DIVP1} = 2$):}
         \begin{equation}
           f_{\text{SYSCLK}} = \frac{f_{\text{VCO1}}}{\text{DIVP1}} = \frac{800.0\,\text{MHz}}{2} = 400.0\,\text{MHz}
@@ -80,7 +82,10 @@ From the $400.0\,\text{MHz}$ system clock, the bus interconnect prescalers are c
   \item \textbf{Peripheral Busses (APB1, APB2, APB3, APB4):} $f_{\text{PCLK}} = f_{\text{HCLK}} / \text{PPRE} = 200.0\,\text{MHz} / 2 = 100.0\,\text{MHz}$.
   \item \textbf{Embedded Flash Latency:} Operating at $200\,\text{MHz}$ AXI under VOS1 requires two wait states:
         \begin{equation}
-          \code{FLASH->ACR} = (2 \ll \code{FLASH_ACR_LATENCY_Pos}) \;\lor\; (2 \ll \code{FLASH_ACR_WRHIGHFREQ_Pos})
+        \begin{split}
+          \code{FLASH->ACR} = {} & (2 \ll \code{FLASH_ACR_LATENCY_Pos}) \\
+                                 & \;\lor\; (2 \ll \code{FLASH_ACR_WRHIGHFREQ_Pos})
+        \end{split}
         \end{equation}
 \end{itemize}
 
@@ -94,10 +99,10 @@ register is dimensioned as:
 \end{equation}
 
 \subsubsection{Fail-Safe HSI Fallback Mechanism}
-To prevent system lockup during cold boots in harsh ambient temperatures, \code{board_system_init()}
-monitors the HSE startup flag for up to $2 \times 10^6$ cycles. If the external crystal fails to oscillate,
-the firmware falls back to the internal $64\,\text{MHz}$ High-Speed Internal (HSI) RC oscillator with
-$\text{DIVM1} = 16$ and $\text{DIVN1} = 200$:
+To prevent system lockup during cold boots in harsh ambient temperatures, the initialization routine
+(\code{board_system_init()}) monitors the HSE startup flag for up to $2 \times 10^6$ cycles.
+If the external crystal fails to oscillate, the firmware falls back to the internal $64\,\text{MHz}$
+High-Speed Internal (HSI) RC oscillator with $\text{DIVM1} = 16$ and $\text{DIVN1} = 200$:
 \begin{equation}
   f_{\text{SYSCLK, fallback}} = \left(\frac{64.0\,\text{MHz}}{16}\right) \times 200 \times \frac{1}{2} = 400.0\,\text{MHz}
 \end{equation}
@@ -110,11 +115,11 @@ the flags via \code{RCC_RSR_RMVF}. The detected cause is printed over UART telem
 $\text{POR}$ (Power-On Reset), $\text{BOR}$ (Brown-Out Reset), $\text{PIN}$ (External NRST Pin),
 $\text{SFT}$ (Software Core Reset), or $\text{IWDG}$ (Independent Watchdog Timeout).
 
-\subsection{Display Architecture: SPI4 Bandwidth and Framebuffer Derivations}
+\subsection{Display Architecture: SPI4 Bandwidth and Framebuffer Analysis}
 \label{sec:lcd-calc}
 
 The visual telemetry interface utilizes a $0.96''$ IPS TFT display module governed by an
-\textbf{ST7735} display controller \cite{st7735ds}. The physical screen resolution is $160 \times 80$ pixels
+\textbf{ST7735} display controller~\cite{st7735ds}. The physical screen resolution is $160 \times 80$ pixels
 in landscape orientation.
 
 \subsubsection{RAM Framebuffer Footprint}
@@ -156,7 +161,7 @@ updates at exactly $1.0\,\text{Hz}$, consuming:
 \end{equation}
 This leaves $>98.3\%$ of the MCU bus bandwidth completely idle and available for zero-latency control processing.
 
-\why[LCD Backlight Modulation: Why $10\,\text{kHz}$ PWM on PE10?]{%
+\why{\emph{LCD Backlight Modulation: Why $10\,\text{kHz}$ PWM on PE10?}
   The LCD backlight comprises three parallel white LEDs drawing approximately $45\,\text{mA}$ at $3.3\,\text{V}$.
   Direct DC on/off switching via a standard GPIO output causes sudden inrush transients ($\frac{di}{dt}$),
   creating a voltage dip of up to $80\,\text{mV}$ across the $3.3\,\text{V}$ board rail and risking brownout
@@ -177,11 +182,11 @@ STM32H750 development boards feature only one software-readable push-button:
 \begin{itemize}
   \item \textbf{K1 (PC13):} Standard GPIO input with active-HIGH electrical pull-down.
   \item \textbf{NRST:} Connected directly to the microcontroller analog reset circuitry; not readable by code.
-  \item \textbf{BOOT0:} Dedicated boot-mode strapping pin, sampled solely on power-on reset \cite{stm32h750ds}.
+  \item \textbf{BOOT0:} Dedicated boot-mode strapping pin, sampled solely on power-on reset~\cite{stm32h750ds}.
 \end{itemize}
 
 \noindent To bridge this physical constraint without requiring external wiring, the team engineered
-an advanced \textbf{Multi-Gesture Button Decoder} (\code{hal_button_gesture.c}). As detailed in
+an advanced \textbf{Multi-Gesture Button Decoder}. As detailed in
 Table~\ref{tab:k1map}, a single physical key is translated into five distinct logical operations
 based on pulse duration and inter-press spacing:
 
@@ -217,8 +222,9 @@ mappings, and external interface circuits.
 
 \begingroup
 \small
-\setlength{\tabcolsep}{4pt}
-\begin{longtable}{L{3.8cm}L{1.8cm}L{2.8cm}L{6.1cm}}
+\setlength{\tabcolsep}{3.5pt}
+\renewcommand{\arraystretch}{1.18}
+\begin{longtable}{L{3.3cm}C{1.8cm}L{2.6cm}L{7.0cm}}
   \caption{Microcontroller pin mapping and peripheral multiplexing}\label{tab:pins}\\
   \toprule
   \textbf{Signal Function} & \textbf{Pin} & \textbf{Alternate Function} & \textbf{Electrical Specification \& Driver Circuit} \\
@@ -251,53 +257,69 @@ board, detailing the wiring of the ST7735 LCD, user controls, UART logging, and 
 
 \begin{figure}[H]
   \centering
-  \resizebox{0.95\linewidth}{!}{%
+  \resizebox{\linewidth}{!}{%
   \begin{tikzpicture}[
-      blk/.style={draw, thick, rounded corners, align=center, font=\small, fill=white},
+      blk/.style={draw, thick, rounded corners, align=center, font=\small, fill=white, inner sep=3pt},
       wire/.style={thick, -{Stealth[length=2.2mm]}},
       bwire/.style={thick, {Stealth[length=2.2mm]}-{Stealth[length=2.2mm]}},
     ]
-    % MCU Core Box (Wide and spacious)
-    \node[blk, minimum width=6.4cm, minimum height=8.2cm, fill=gray!8] (mcu) at (0,0) {};
-    \node[draw=blue!60!black, thick, rounded corners, fill=blue!10, minimum width=5.8cm, align=center] at (0,3.3) 
-      {\textbf{\large STM32H750VBT6}\\[2pt]\footnotesize WeAct MiniSTM32H7xx Core Board ($400\,\text{MHz}$)};
+    % MCU Core Box (spans x in [-3.1, 3.1], width 6.2cm, height 9.2cm, y in [-4.6, 4.6])
+    \node[blk, minimum width=6.2cm, minimum height=9.2cm, fill=white] (mcu) at (0,0) {};
+    
+    % MCU Header Label (single node, perfectly spaced on pure white background)
+    \node[align=center, anchor=north] at (0, 4.35) {
+      \textbf{\large\color{blue!80!black} STM32H750VBT6}\\[2pt]
+      \footnotesize\color{gray!80!black} WeAct STM32H7xx Board ($400\,\text{MHz}$)
+    };
 
-    % Left pin labels (Inputs, anchored west with inner margin)
-    \node[font=\scriptsize\ttfamily, anchor=west] at (-2.95,2.0)  {PC13 (Key K1)};
-    \node[font=\scriptsize\ttfamily, anchor=west] at (-2.95,0.9)  {PA0  (Key K0)};
-    \node[font=\scriptsize\ttfamily, anchor=west] at (-2.95,-0.2) {PA1  (Key STOP)};
-    \node[font=\scriptsize\ttfamily, anchor=west] at (-2.95,-1.6) {PA9 / PA10 (USART1)};
+    % Left pin labels (Inputs, anchored west at x=-2.95)
+    \node[font=\footnotesize\ttfamily, anchor=west] at (-2.95,2.7)  {PC13 [K1]};
+    \node[font=\footnotesize\ttfamily, anchor=west] at (-2.95,0.9)  {PA0  [K0]};
+    \node[font=\footnotesize\ttfamily, anchor=west] at (-2.95,-0.9) {PA1  [STOP]};
+    \node[font=\footnotesize\ttfamily, anchor=west] at (-2.95,-2.7) {PA9/10 [UART1]};
 
-    % Right pin labels (Outputs, anchored east with inner margin)
-    \node[font=\scriptsize\ttfamily, anchor=east] at (2.95,2.0)   {PE3 (User LED)};
-    \node[font=\scriptsize\ttfamily, anchor=east, align=right] at (2.95,0.0) 
-      {PE12 SCK, PE14 MOSI\\PE11 CS, PE13 DC\\PE10 BL (TIM1 PWM)};
-    \node[font=\scriptsize\ttfamily, anchor=east] at (2.95,-2.2)  {PA13 / PA14 (SWD)};
+    % Central Architecture Info Badge
+    \node[font=\footnotesize\bfseries\color{blue!80!black}] at (0,-3.5) {Arm Cortex-M7 (400\,MHz)};
+    \node[font=\footnotesize\color{gray!70!black}] at (0,-3.9) {1\,MB SRAM / 128\,KB Flash};
 
-    % External peripherals - Left (spaced out to x=-7.2)
-    \node[blk, fill=orange!10] (k1) at (-7.2,2.0) {Onboard Key K1\\\scriptsize Active HIGH (Pull-Down)};
-    \node[blk, dashed, fill=orange!5] (k0) at (-7.2,0.9) {Optional Key K0\\\scriptsize External to GND};
-    \node[blk, dashed, fill=orange!5] (stop) at (-7.2,-0.2) {Optional Key STOP\\\scriptsize External to GND};
-    \node[blk, fill=blue!10] (pc) at (-7.2,-1.6) {Host PC / USB-TTL\\\scriptsize 115200 8N1 Telemetry};
+    % Right pin labels (Outputs, anchored east at x=2.95)
+    \node[font=\footnotesize\ttfamily, anchor=east] at (2.95,2.7)   {[LED]  PE3};
+    \node[font=\footnotesize\ttfamily, anchor=east, align=right] at (2.95,0.0) 
+      {[SPI4] PE12/14\\[1pt][GPIO] PE11/13\\[1pt][PWM]  PE10};
+    \node[font=\footnotesize\ttfamily, anchor=east] at (2.95,-2.7)  {[SWD]  PA13/14};
 
-    % External peripherals - Right (spaced out to x=7.4 for clean arrow clearance)
-    \node[blk, fill=green!10] (led) at (7.4,2.0) {Physical LED PE3\\\scriptsize Status: $\text{RLED} \lor \text{BLED}$};
-    \node[blk, fill=teal!10, minimum height=1.8cm] (lcd) at (7.4,0) {0.96$''$ ST7735 LCD\\\scriptsize $160 \times 80$ RGB565\\\scriptsize SPI4 Master @ 12.5\,MHz};
-    \node[blk, dashed, fill=gray!10] (swd) at (7.4,-2.2) {ST-Link / SWD\\\scriptsize Debug / Flash};
+    % External peripherals - Left (centers at x=-5.8, width 3.2cm, 0.9cm vertical gaps)
+    \node[blk, fill=orange!10, text width=3.2cm, font=\footnotesize, inner sep=2.5pt] (k1) at (-5.8,2.7) 
+      {\textbf{Onboard Key K1}\\[2pt]PC13 (Active High)};
+    \node[blk, dashed, fill=white, text width=3.2cm, font=\footnotesize, inner sep=2.5pt] (k0) at (-5.8,0.9) 
+      {\textbf{Optional Key K0}\\[2pt]PA0 (Active Low)};
+    \node[blk, dashed, fill=white, text width=3.2cm, font=\footnotesize, inner sep=2.5pt] (stop) at (-5.8,-0.9) 
+      {\textbf{Optional STOP}\\[2pt]PA1 (Active Low)};
+    \node[blk, fill=blue!10, text width=3.2cm, font=\footnotesize, inner sep=2.5pt] (pc) at (-5.8,-2.7) 
+      {\textbf{Host PC Console}\\[2pt]PA9/10 (USART1)};
 
-    % Wiring connections
-    \draw[wire] (k1.east) -- (-3.2,2.0);
-    \draw[wire] (k0.east) -- (-3.2,0.9);
-    \draw[wire] (stop.east) -- (-3.2,-0.2);
-    \draw[bwire] (pc.east) -- (-3.2,-1.6);
+    % External peripherals - Right (centers at x=6.4, width 2.8cm, generous 1.9cm wire span)
+    \node[blk, fill=green!10, text width=2.8cm, font=\footnotesize, inner sep=2.5pt] (led) at (6.4,2.7) 
+      {\textbf{Physical LED PE3}\\[2pt]Status: $\text{RLED} \lor \text{BLED}$};
+    \node[blk, fill=teal!10, text width=2.8cm, font=\footnotesize, inner sep=2.5pt] (lcd) at (6.4,0.0) 
+      {\textbf{0.96$''$ ST7735 LCD}\\[2pt]$160 \times 80$ RGB565\\[1pt]SPI4 Master ($12.5\,\text{MHz}$)};
+    \node[blk, dashed, fill=white, text width=2.8cm, font=\footnotesize, inner sep=2.5pt] (swd) at (6.4,-2.7) 
+      {\textbf{ST-Link / SWD}\\[2pt]PA13/14 (Debug/Flash)};
 
-    \draw[wire] (3.2,2.0) -- (led.west);
-    \draw[wire, double, double distance=1.5pt] (3.2,0) -- node[above, font=\scriptsize\bfseries, pos=0.5]{SPI4 + PWM} (lcd.west);
-    \draw[bwire] (3.2,-2.2) -- (swd.west);
+    % Wiring connections (generous 1.9cm wire travel on right side)
+    \draw[wire] (k1.east) -- (-3.1,2.7);
+    \draw[wire] (k0.east) -- (-3.1,0.9);
+    \draw[wire] (stop.east) -- (-3.1,-0.9);
+    \draw[bwire] (pc.east) -- (-3.1,-2.7);
 
-    \node[font=\scriptsize, text width=12cm, align=center] at (0,-4.5)
+    \draw[wire] (3.1,2.7) -- (led.west);
+    \draw[wire] (3.1,0.0) -- node[above=2pt, font=\footnotesize\bfseries, fill=white, inner sep=2pt, pos=0.45]{SPI4} (lcd.west);
+    \draw[bwire] (3.1,-2.7) -- (swd.west);
+
+    \node[font=\footnotesize, text width=14cm, align=center] at (0,-5.2)
       {Actuators (Drum Motor, Drain Pump, Inlet Valve, Door Deadbolt) are virtualized via the LCD dashboard and UART telemetry.};
-  \end{tikzpicture}}
+  \end{tikzpicture}%
+  }
   \caption{Hardware interconnect diagram of the WeAct STM32H750 implementation}
   \label{fig:hw-connection}
 \end{figure}

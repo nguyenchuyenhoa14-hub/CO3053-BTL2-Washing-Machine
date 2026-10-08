@@ -13,7 +13,8 @@ A pivotal engineering challenge in developing the washing machine control unit w
   \centering
   \caption{Multi-Criteria Evaluation of Front-Panel Input Architectures}
   \label{tab:tradeoff-ui}
-  \begin{tabularx}{\linewidth}{lXp{3.2cm}p{3.2cm}}
+  \renewcommand{\arraystretch}{1.2}
+  \begin{tabularx}{\linewidth}{L{4.2cm} Y Y Y}
     \toprule
     \textbf{Evaluation Dimension} & \textbf{Classic 3-Button Panel} & \textbf{Single-Key Multi-Gesture (K1)} & \textbf{Dual-Key Panel (K0 + K1)} \\
     \midrule
@@ -27,15 +28,15 @@ A pivotal engineering challenge in developing the washing machine control unit w
 \end{table}
 
 \paragraph{Target Hardware Constraints and Gesture Decoder Justification:}
-The commercial WeAct MiniSTM32H750 core board exposes only a single general-purpose user tactile switch (\code{K1} on \code{PC13}); the onboard \code{BOOT0} button cannot be remapped to software GPIO under STM32H7 hardware architecture. Rather than relying solely on external breadboard wiring, a sophisticated \textbf{temporal gesture recognition engine} (\code{hal_button_gesture.c}) was synthesized. By classifying input pulses into Short Click ($<300$\,ms), Double Click ($<300$\,ms inter-tap), and Two-Stage Sustained Hold ($600$\,ms / $1200$\,ms), all seven logical control functions (COIN10, COIN20, COIN50, RUN, PAUSE, STOP, FAULT) are controlled cleanly from a single pin without modifying the core FSM.
+The commercial WeAct MiniSTM32H750 core board exposes only a single general-purpose user tactile switch (\code{K1} on \code{PC13}); the onboard \code{BOOT0} button cannot be remapped to software GPIO under STM32H7 hardware architecture. Rather than relying solely on external breadboard wiring, a sophisticated \textbf{temporal gesture recognition engine} was synthesized. By classifying input pulses into Short Click ($<300$\,ms), Double Click ($<300$\,ms inter-tap), and Two-Stage Sustained Hold ($600$\,ms / $1200$\,ms), all seven logical control functions (COIN10, COIN20, COIN50, RUN, PAUSE, STOP, FAULT) are controlled cleanly from a single pin without modifying the core FSM.
 
 \subsubsection{Kernel Timing: Asynchronous ISR vs. Monotonic Super-Loop}
 
 A foundational debate in embedded real-time systems~\cite{kopetz} concerns the placement of state machine execution:
 \begin{itemize}
-  \item \textbf{Approach A: Interrupt-Driven FSM (Inside SysTick ISR):}
+  \item \textbf{Approach A (Interrupt-Driven Execution inside SysTick ISR):}
         Executing \code{wm_fsm_step()} directly inside \code{SysTick_Handler()} ensures strict $1$\,kHz periodicity. However, it introduces critical reentrancy hazards: if an asynchronous GPIO or UART interrupt fires simultaneously and modifies shared context, race conditions occur. Furthermore, performing SPI frame transfers or UART transmissions within an ISR violates standard real-time practices by locking out higher-priority hardware interrupts.
-  \item \textbf{Approach B: Monotonic Super-Loop with Catch-Up (Selected Architecture):}
+  \item \textbf{Approach B (Monotonic Super-Loop with Catch-Up -- Selected Design):}
         The interrupt service routine is restricted to a single atomic increment: \code{g_millis++}. The FSM, debouncers, blinkers, and UI engines execute sequentially within the non-blocking foreground loop. To eliminate timing jitter during heavy graphical operations, a monotonic catch-up mechanism is deployed:
         \begin{equation}
           \text{while } (t_{\text{processed}} \ne g_{\text{millis}}) \implies \Delta t = 1\,\text{ms}
@@ -55,7 +56,7 @@ A frequent misconception in amateur washing machine design is assuming that ``PA
 \subsubsection{Double-Press STOP Timing Margin Verification (TC-22)}
 A single STOP press must not terminate the wash cycle (FR-08) to prevent accidental aborts by brushing past the control panel. The system enforces a $T_{\text{double}} \le 1500$\,ms confirmation window.
 \begin{itemize}
-  \item \textbf{Implementation Robustness:} Rather than calculating timestamp differentials ($\Delta t = t_2 - t_1$) which are susceptible to arithmetic wrap-around, the FSM utilizes a self-decrementing down-counter (\code{stop_window_ms}). 
+  \item \textbf{Implementation Robustness:} Rather than calculating timestamp differentials ($\Delta t = t_2 - t_1$) which are susceptible to arithmetic wrap-around, the FSM utilizes a self-decrementing down-counter ($w$). 
   \item \textbf{Boundary Verification:} Test case \code{TC-22} mathematically verifies that an input injected at $t = 1499$\,ms successfully triggers an abort, whereas an input at $t = 1501$\,ms is cleanly rejected, resetting the window without cycle interruption.
 \end{itemize}
 
@@ -76,14 +77,14 @@ A particularly subtle operational scenario occurs when a user initiates PAUSE du
   \item \textbf{Safety Verification:} The controller ensures that the physical actuators remain completely dormant while in \code{PAUSED}. When the user subsequently presses RUN to resume, the controller does not erroneously resume AGITATE; it immediately queries the temporal phase decoder and engages the high-speed SPIN motor and DRAIN pump.
 \end{itemize}
 
-\subsection{Engineering Limitations and Industrial Production Roadmap}
+\subsection{Engineering Limitations and Production Roadmap}
 
 While the current implementation achieves 100\,\% specification compliance and pedagogical excellence, transition to mass industrial deployment would involve several hardware hardening steps:
 \begin{enumerate}
   \item \textbf{High-Voltage Actuator Power Stage:}
-        The logic-level actuator flags (\code{motor_agitate}, \code{motor_spin}, \code{pump_drain}) currently drive virtual pins and LCD telemetry. Industrial deployment requires optocoupled triac drivers (e.g., MOC3041 with snubber networks) or industrial automotive-grade relays with zero-crossing detection to switch 220\,VAC induction motors and drain pumps safely.
+        The logic-level actuator outputs (motor agitation, motor spin, drain pump) currently drive virtual pins and LCD telemetry. Industrial deployment requires optocoupled triac drivers (e.g., MOC3041 with snubber networks) or industrial automotive-grade relays with zero-crossing detection to switch 220\,VAC induction motors and drain pumps safely.
   \item \textbf{Non-Volatile Power-Loss Cycle Preservation:}
         The current architecture resides in volatile SRAM. In the event of a mains power dropout, the active wash cycle is lost. In commercial deployment, the active state context ($s, t_{\text{remain}}, \Phi_{\text{phase}}$) should be periodically mirrored to internal Flash memory (using wear-leveling EEPROM emulation) or retained in battery-backed backup SRAM (\code{BKPSRAM}) powered by a coin-cell battery on \code{VBAT}.
   \item \textbf{Hardware Coin Acceptor Physical Loop:}
-        The multi-pulse coin decoder engine (\code{hal_button_engine.c}) has been fully implemented and verified via unit tests (\code{HAL-02}, \code{HAL-05}). Connecting a physical multi-coin electronic acceptor (e.g., CH-926) requires solely wiring its open-collector pulse output to an external interrupt pin with a 4.7\,k$\Omega$ pull-up resistor.
+        The multi-pulse coin decoder engine has been fully implemented and verified via unit tests (\code{HAL-02}, \code{HAL-05}). Connecting a physical multi-coin electronic acceptor (e.g., CH-926) requires solely wiring its open-collector pulse output to an external interrupt pin with a 4.7\,k$\Omega$ pull-up resistor.
 \end{enumerate}

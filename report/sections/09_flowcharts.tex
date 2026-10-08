@@ -4,60 +4,86 @@
 % =============================================================================
 
 \tikzset{
-  fc/.style={draw, thick, align=center, font=\small, minimum width=3.6cm, minimum height=0.8cm, fill=white},
-  fcproc/.style={fc, rectangle},
-  fcterm/.style={fc, rounded rectangle, fill=gray!15},
-  fcdec/.style={draw, thick, diamond, aspect=2.2, align=center, font=\small, inner sep=1pt, fill=stPause!60},
-  fcio/.style={fc, trapezium, trapezium left angle=72, trapezium right angle=108, minimum width=3cm},
+  fc/.style={draw, thick, align=center, font=\small, minimum height=0.85cm, fill=white, inner sep=3pt},
+  fcproc/.style={fc, rectangle, rounded corners=2pt},
+  fcterm/.style={fc, rounded rectangle, fill=gray!15, minimum width=2.4cm},
+  fcdec/.style={draw, thick, diamond, aspect=1.6, align=center, font=\footnotesize, inner sep=2pt, fill=stPause!40},
   fa/.style={-{Stealth[length=2.2mm]}, thick},
+  fclbl/.style={font=\footnotesize, fill=white, inner sep=1.5pt},
 }
 
 \subsection{Main program}
 
 \begin{figure}[H]
   \centering
-  \resizebox{!}{0.78\textheight}{%
-  \begin{tikzpicture}[node distance=0.55cm]
-    \node[fcterm] (start) {Start (Reset\_Handler)};
-    \node[fcproc, below=of start] (clk) {Hardware init\\\scriptsize power, PLL 400\,MHz, caches};
-    \node[fcproc, below=of clk] (gpio) {GPIO init\\\scriptsize PC13, PA0/PA1, PE3};
-    \node[fcproc, below=of gpio] (tim) {Timer init\\\scriptsize SysTick 1\,kHz};
-    \node[fcproc, below=of tim] (drv) {Driver init\\\scriptsize debouncers, blinkers, gestures};
-    \node[fcproc, below=of drv] (fsm) {FSM init $\rightarrow$ STANDBY\\\scriptsize RLED ON, $T$ = 1800\,s (30\,s demo)};
-    \node[fcproc, below=of fsm] (lcd) {UART + LCD init};
-    \node[fcdec, below=of lcd] (ms) {processed\\$\neq$ millis?};
-    \node[fcproc, below=0.8cm of ms] (p1) {processed++\\\code{process_1ms()}};
-    \node[fcproc, below=of p1] (in) {Read inputs, debounce,\\decode gestures};
-    \node[fcproc, below=of in] (ev) {Generate events $\rightarrow$\\update FSM};
-    \node[fcdec, below=of ev] (sec) {1000 ms\\elapsed?};
-    \node[fcproc, below=0.8cm of sec] (tick) {\code{wm_fsm_tick_1s()}};
+  \begin{tikzpicture}
+    % Left Column: Power-On Initialization Pipeline (centered at x = -4.5)
+    \node[fcterm] (start) at (-4.5, 0.0) {Start (\code{Reset_Handler})};
+    \node[fcproc, below=0.6cm of start, text width=4.0cm] (clk) 
+      {\textbf{Hardware Init}\\[1pt]\footnotesize Core PLL 400\,MHz, Flash, GPIO};
+    \node[fcproc, below=0.6cm of clk, text width=4.0cm] (tim) 
+      {\textbf{Timer Setup}\\[1pt]\footnotesize SysTick 1.0\,kHz Tick};
+    \node[fcproc, below=0.6cm of tim, text width=4.0cm] (fsm) 
+      {\textbf{Peripherals Init}\\[1pt]\footnotesize FSM Init, ST7735, UART};
+    \node[fcterm, fill=blue!10, below=0.6cm of fsm, text width=3.8cm] (loop_entry) 
+      {Enter Super-Loop};
 
-    \node[fcproc, right=2.2cm of ms] (uart) {Read UART keys\\$\rightarrow$ events};
-    \node[fcproc, below=of uart] (out) {Update outputs\\\scriptsize PE3 = RLED $\lor$ BLED};
-    \node[fcproc, below=of out] (log) {Log status line\\\scriptsize if changed};
-    \node[fcproc, below=of log] (draw) {Redraw LCD\\\scriptsize if view changed};
+    % Right Area: Non-Blocking Super-Loop Engine
+    % Dispatcher decision diamond at (2.5, 0.0)
+    \node[fcdec, text width=2.2cm, aspect=1.4] (ms) at (2.5, 0.0) {Elapsed Tick?\\$t_{\text{proc}} < t_{\text{now}}$?};
 
+    % 1ms Tick Catch-Up Branch (Downwards at x = 0.2, width 3.0cm)
+    \node[fcproc, text width=3.0cm] (p1) at (0.2, -2.0) 
+      {Service 1\,ms Tick\\[1pt]\footnotesize Debounce Integrator};
+    \node[fcproc, below=0.55cm of p1, text width=3.0cm] (in) 
+      {Sample Inputs\\[1pt]\footnotesize Gesture Decoder};
+    \node[fcproc, below=0.55cm of in, text width=3.0cm] (ev) 
+      {Dispatch Events\\[1pt]\footnotesize Deterministic EFSM};
+    \node[fcdec, below=0.55cm of ev, text width=2.0cm, aspect=1.4] (sec) 
+      {1000\,ms\\Elapsed?};
+    \node[fcproc, below=0.55cm of sec, text width=3.0cm] (tick) 
+      {Dispatch 1\,s Tick\\[1pt]\footnotesize Decrement $t \gets t-1$};
+
+    % Background Idle & Presentation Branch (Downwards at x = 4.8, width 3.0cm)
+    \node[fcproc, text width=3.0cm] (uart) at (4.8, -2.0) 
+      {Poll USART1\\[1pt]\footnotesize Telemetry / Commands};
+    \node[fcproc, below=0.55cm of uart, text width=3.0cm] (out) 
+      {Update LEDs\\[1pt]\footnotesize PE3 = $\text{RLED} \lor \text{BLED}$};
+    \node[fcproc, below=0.55cm of out, text width=3.0cm] (log) 
+      {Stream Telemetry\\[1pt]\footnotesize USART1 (State Log)};
+    \node[fcproc, below=0.55cm of log, text width=3.0cm] (draw) 
+      {Render Dashboard\\[1pt]\footnotesize ST7735 LCD (If Dirty)};
+
+    % Initialization pipeline connections
     \draw[fa] (start) -- (clk);
-    \draw[fa] (clk) -- (gpio);
-    \draw[fa] (gpio) -- (tim);
-    \draw[fa] (tim) -- (drv);
-    \draw[fa] (drv) -- (fsm);
-    \draw[fa] (fsm) -- (lcd);
-    \draw[fa] (lcd) -- node[right, font=\scriptsize, pos=0.4]{while(1)} (ms);
-    \draw[fa] (ms) -- node[right, font=\scriptsize]{yes} (p1);
+    \draw[fa] (clk) -- (tim);
+    \draw[fa] (tim) -- (fsm);
+    \draw[fa] (fsm) -- (loop_entry);
+
+    % Loop entry connection routing cleanly around open corridor
+    \draw[thick] (loop_entry.east) -- ++(1.0,0) |- (2.5, 1.8);
+
+    % Super-loop branch connections
+    \draw[fa] (ms.west) -| node[fclbl, above, pos=0.35]{yes (catch-up)} (p1);
     \draw[fa] (p1) -- (in);
     \draw[fa] (in) -- (ev);
     \draw[fa] (ev) -- (sec);
-    \draw[fa] (sec) -- node[right, font=\scriptsize]{yes} (tick);
-    \draw[fa] (sec.west) -- node[above, font=\scriptsize]{no} ++(-1.4,0) coordinate (ret) |- (ms.west);
-    \draw[thick] (tick.west) -| (ret);
-    \draw[fa] (ms) -- node[above, font=\scriptsize]{no} (uart);
+    \draw[fa] (sec) -- node[fclbl, right=2pt, pos=0.45]{yes} (tick);
+    
+    \draw[fa] (ms.east) -| node[fclbl, above, pos=0.35]{no (idle)} (uart);
     \draw[fa] (uart) -- (out);
     \draw[fa] (out) -- (log);
     \draw[fa] (log) -- (draw);
-    \draw[fa] (draw.east) -- ++(0.7,0) |- (ms.north east);
-  \end{tikzpicture}}
-  \caption{Main program flowchart (non-blocking super-loop)}
+
+    % Loop-back path merge (meeting at corridor x = 1.8 below tick.south)
+    \coordinate (merge) at ($(tick.south) + (1.6cm, -0.8cm)$);
+    \draw[thick] (tick.south) |- (merge);
+    \draw[thick] (sec.east) -- node[fclbl, above, pos=0.3]{no} ++(0.6,0) |- (merge);
+    \draw[thick] (draw.south) |- (merge);
+    \draw[thick] (merge) -- ++(5.35,0) |- (2.5, 1.8);
+    \draw[fa] (2.5, 1.8) -- (ms.north);
+  \end{tikzpicture}
+  \caption{Main program flowchart: Non-blocking super-loop architecture}
   \label{fig:flow-main}
 \end{figure}
 
@@ -65,59 +91,65 @@
 
 \begin{figure}[H]
   \centering
-  \resizebox{0.9\linewidth}{!}{%
-  \begin{tikzpicture}[node distance=0.55cm]
-    \node[fcterm] (s) {COIN($v$) event};
-    \node[fcdec, below=of s] (idle) {state $\in$\\\{STANDBY,\\COLLECTING\}?};
-    \node[fcdec, right=1.6cm of idle] (rdy) {state =\\READY?};
-    \node[fcterm, right=1.4cm of rdy] (rej) {ignore coin\\\scriptsize RUNNING/PAUSED/ERROR};
-    \node[fcproc, below=1.0cm of rdy] (add2) {$b \mathrel{+}= v$\\\scriptsize surplus, no refund later};
-    \node[fcproc, below=1.0cm of idle] (add) {$b \mathrel{+}= v$\\\scriptsize (overflow guarded)};
-    \node[fcdec, below=of add] (th) {$b \geq 50$?};
-    \node[fcproc, below left=0.9cm and -0.6cm of th] (col) {enter COLLECTING\\\scriptsize RLED ON, BLED OFF};
-    \node[fcproc, below right=0.9cm and -0.6cm of th] (ready) {enter READY\\\scriptsize RLED OFF, BLED ON};
-    \node[fcterm, below=3.0cm of th] (e) {return};
+  \begin{tikzpicture}[node distance=0.7cm]
+    % Discrete columns: x = 2.8 (Idle branch), x = 8.0 (Ready branch), x = 12.2 (Reject branch)
+    \node[fcterm] (s) {COIN($v$) Event Received};
+    \node[fcdec, below=0.8cm of s, text width=2.4cm] (idle) {State Idle?\\(\st{STANDBY} / \st{COLLECT})};
+    \node[fcdec, right=1.6cm of idle, text width=2.2cm] (rdy) {State =\\ \st{READY}?};
+    \node[fcterm, fill=gray!15, right=1.2cm of rdy] (rej) {Ignore Coin\\[2pt]\footnotesize Active / Error};
+
+    \node[fcproc, below=0.9cm of idle, text width=2.8cm] (add) {$b \gets b + v$\\[2pt]\footnotesize (Guarded sum)};
+    \node[fcproc, below=0.9cm of rdy, text width=2.8cm] (add2) {$b \gets b + v$\\[2pt]\footnotesize (Surplus deposit)};
+
+    \node[fcdec, below=0.9cm of add, text width=2.0cm] (th) {$b \ge 50\,\text{\textcent}$?};
+    \node[fcproc, below left=0.9cm and 0.2cm of th, text width=2.6cm] (col) {Enter \st{COLLECTING}\\[2pt]\footnotesize RLED ON, BLED OFF};
+    \node[fcproc, below right=0.9cm and 0.2cm of th, text width=2.6cm] (ready) {Enter \st{READY}\\[2pt]\footnotesize RLED OFF, BLED ON};
+    \node[fcterm, below=3.4cm of th, text width=3.4cm] (e) {Return / End Event};
 
     \draw[fa] (s) -- (idle);
-    \draw[fa] (idle) -- node[right, font=\scriptsize]{yes} (add);
-    \draw[fa] (idle) -- node[above, font=\scriptsize]{no} (rdy);
-    \draw[fa] (rdy) -- node[above, font=\scriptsize]{no} (rej);
-    \draw[fa] (rdy) -- node[right, font=\scriptsize]{yes} (add2);
+    \draw[fa] (idle) -- node[fclbl, right=2pt, pos=0.45]{yes} (add);
+    \draw[fa] (idle) -- node[fclbl, above=2pt]{no} (rdy);
+    \draw[fa] (rdy) -- node[fclbl, above=2pt]{no} (rej);
+    \draw[fa] (rdy) -- node[fclbl, right=2pt, pos=0.45]{yes} (add2);
     \draw[fa] (add) -- (th);
-    \draw[fa] (th) -| node[above, font=\scriptsize, pos=0.2]{no} (col);
-    \draw[fa] (th) -| node[above, font=\scriptsize, pos=0.2]{yes} (ready);
-    \draw[fa] (col) |- (e);
-    \draw[fa] (ready) |- (e);
-    \draw[fa] (add2) |- (e);
-  \end{tikzpicture}}
-  \caption{Coin processing in the FSM}
+    \draw[fa] (th) -| node[fclbl, above, pos=0.3]{no} (col);
+    \draw[fa] (th) -| node[fclbl, above, pos=0.3]{yes} (ready);
+    \draw[fa] (col.south) |- (e.west);
+    \draw[fa] (ready.south) -- (ready.south |- e.north);
+    \draw[thick] (rej.south) |- (add2.south);
+    \draw[fa] (add2.south) |- (e.east);
+  \end{tikzpicture}
+  \caption{Coin processing logic in the deterministic FSM core}
   \label{fig:flow-coin}
 \end{figure}
 
 \noindent On the board, coins come from K1 gestures and are first \emph{staged} by the front panel
-(Figure~\ref{fig:flow-staging}); a real coin acceptor would instead feed \code{hal_coin_pulse}, which
+(Figure~\ref{fig:flow-staging}); a real coin acceptor would instead feed the hardware pulse accumulator driver, which
 emits COIN($v$) events directly.
 
 \begin{figure}[H]
   \centering
-  \resizebox{0.85\linewidth}{!}{%
-  \begin{tikzpicture}[node distance=0.55cm]
-    \node[fcterm] (s) {K1 gesture in STANDBY};
-    \node[fcdec, below=of s] (g) {gesture?};
-    \node[fcproc, left=1.6cm of g] (add) {pending $\mathrel{+}=$ 10 / 20 / 50\\\scriptsize click / double / hold+release\\\scriptsize (max 990\cent)};
-    \node[fcdec, below=1.0cm of g] (th) {pending\\$\geq 50$?};
-    \node[fcproc, below left=0.9cm and -0.4cm of th] (ok) {send COIN\_50 to FSM\\$\rightarrow$ READY\\\scriptsize notice ``CHANGE pending$-$50''};
-    \node[fcproc, below right=0.9cm and -0.4cm of th] (no) {stay STANDBY\\\scriptsize notice ``NOT ENOUGH, REFUND''};
-    \node[fcproc, below=3.1cm of th] (clr) {pending := 0};
+  \begin{tikzpicture}[node distance=0.7cm]
+    \node[fcterm] (s) {K1 Gesture in \st{STANDBY}};
+    \node[fcdec, below=0.8cm of s, text width=2.0cm] (g) {Gesture\\Type?};
+    \node[fcproc, left=1.8cm of g, text width=3.8cm] (add) {Pending $\gets$ Pending $+ v$\\[2pt]\footnotesize $10\,\text{\textcent}, 20\,\text{\textcent}, 50\,\text{\textcent}$ (Click/Double/Hold)\\[1pt]\footnotesize Guarded Max $990\,\text{\textcent}$};
+    \node[fcdec, below=1.2cm of g, text width=2.0cm] (th) {Pending\\$\ge 50\,\text{\textcent}$?};
+    \node[fcproc, below left=1.2cm and 0.2cm of th, text width=3.6cm] (ok) {Deposit $50\,\text{\textcent}$ to FSM Core\\[2pt]\footnotesize Advance to \st{READY}\\[1pt]\footnotesize Display: ``Change Pending$-$50''};
+    \node[fcproc, below right=1.2cm and 0.2cm of th, text width=3.6cm] (no) {Remain in \st{STANDBY}\\[2pt]\footnotesize Display: ``Not Enough, Refund''};
+    \node[fcproc, below=4.2cm of th, text width=3.6cm] (clr) {Clear Staged Balance\\[2pt]\footnotesize Pending $\gets 0$};
+    \node[fcterm, below=0.7cm of clr] (e) {Wait for Next Event};
+
     \draw[fa] (s) -- (g);
-    \draw[fa] (g) -- node[above, font=\scriptsize]{coin} (add);
-    \draw[fa] (g) -- node[right, font=\scriptsize]{HOLD2 (1.2\,s) = confirm} (th);
-    \draw[fa] (th) -| node[above, pos=0.2, font=\scriptsize]{yes} (ok);
-    \draw[fa] (th) -| node[above, pos=0.2, font=\scriptsize]{no} (no);
-    \draw[fa] (ok) |- (clr);
-    \draw[fa] (no) |- (clr);
-  \end{tikzpicture}}
-  \caption{Coin staging on the board's single-key front panel}
+    \draw[fa] (g) -- node[fclbl, above=2pt]{Deposit} (add);
+    \draw[fa] (add.north) |- ($(s.south)!0.5!(g.north)$);
+    \draw[fa] (g) -- node[fclbl, right=2pt, pos=0.45]{HOLD2 (1.2\,s) = Confirm} (th);
+    \draw[fa] (th) -| node[fclbl, above, pos=0.3]{yes} (ok);
+    \draw[fa] (th) -| node[fclbl, above, pos=0.3]{no} (no);
+    \draw[fa] (ok.south) |- (clr.west);
+    \draw[fa] (no.south) |- (clr.east);
+    \draw[fa] (clr) -- (e);
+  \end{tikzpicture}
+  \caption{Coin staging logic on the board single-key front panel}
   \label{fig:flow-staging}
 \end{figure}
 
@@ -126,80 +158,106 @@ emits COIN($v$) events directly.
 \begin{figure}[H]
   \centering
   \resizebox{\linewidth}{!}{%
-  \begin{tikzpicture}[sm/.style={fcterm, minimum width=1.8cm}]
-    \node[fcterm] (s) at (0,0) {Button event};
-    \node[fcdec] (k) at (0,-1.7) {which\\button?};
+  \begin{tikzpicture}
+    % Top entry and main button discriminator (relative placement, zero inversion)
+    \node[fcterm] (s) at (0, 0.0) {User Button Event Received};
+    \node[fcdec, below=0.8cm of s, text width=2.0cm, aspect=1.4] (k) {Which\\Button?};
 
-    % RUN branch
-    \node[fcdec] (r1) at (-6,-3.6) {state?};
-    \node[fcproc, minimum width=2.8cm] (r2) at (-8.0,-5.8) {$b:=0$, $t:=T$\\$\rightarrow$ RUNNING};
-    \node[fcproc, minimum width=2.8cm] (r3) at (-4.0,-5.8) {resume, $t$ kept\\$\rightarrow$ RUNNING};
-    \node[sm] (r4) at (-6,-7.8) {other: ignore};
+    % Column 2: PAUSE logic (directly below k)
+    \node[fcdec, below=1.0cm of k, text width=2.0cm, aspect=1.4] (p1) {State =\\\st{RUNNING}?};
+    \node[fcproc, below=0.75cm of p1, text width=3.0cm] (p1_act) 
+      {\textbf{Pause Cycle}\\[2pt]\footnotesize Motor OFF, BLED Solid ON\\Door Remains LOCKED\\$\rightarrow$ \st{PAUSED} ($t$ Continues)};
+    \node[fcterm, below=0.75cm of p1_act, text width=2.2cm] (p_ign) {Ignore PAUSE};
 
-    % PAUSE branch
-    \node[fcdec] (p1) at (0,-3.6) {RUNNING?};
-    \node[fcproc, minimum width=2.8cm] (p2) at (0,-6.0) {motor OFF, BLED ON\\$\rightarrow$ PAUSED\\\scriptsize timer continues};
-    \node[sm] (p3) at (2.4,-4.6) {ignore};
+    % Column 1: RUN logic (left of p1)
+    \node[fcdec, left=2.4cm of p1, text width=2.0cm, aspect=1.4] (r1) {State =\\\st{READY}?};
+    \node[fcproc, below=0.65cm of r1, text width=3.0cm] (r1_act) 
+      {\textbf{Start Cycle}\\[2pt]\footnotesize $b \gets 0, \; t \gets 1800\,\text{s}$,\\Door LOCKED, Motor ON\\$\rightarrow$ \st{RUNNING}};
+    \node[fcdec, below=0.65cm of r1_act, text width=2.0cm, aspect=1.4] (r2) {State =\\\st{PAUSED}?};
+    \node[fcproc, below=0.65cm of r2, text width=3.0cm] (r2_act) 
+      {\textbf{Resume Cycle}\\[2pt]\footnotesize Motor ON, BLED 1\,Hz\\$t$ Preserved\\$\rightarrow$ \st{RUNNING}};
+    \node[fcterm, below=0.65cm of r2_act, text width=2.2cm] (r_ign) {Ignore RUN};
 
-    % STOP branch
-    \node[fcdec] (s1) at (6.5,-3.6) {STANDBY\\or ERROR?};
-    \node[sm] (s1n) at (9.6,-3.6) {ignore};
-    \node[fcdec] (s2) at (6.5,-5.8) {$n = 1$?};
-    \node[fcproc, minimum width=2.4cm] (s3) at (9.6,-5.8) {$n:=1$\\$w:=1500$\,ms};
-    \node[fcproc] (s4) at (6.5,-8.0) {return $b$ if not yet run\\all OFF $\rightarrow$ STANDBY};
+    % Column 3: STOP logic (right of p1)
+    \node[fcdec, right=2.4cm of p1, text width=2.0cm, aspect=1.4] (s1) {\st{STANDBY} or\\\st{ERROR}?};
+    \node[fcterm, below=0.65cm of s1, text width=2.2cm] (s_ign) {Ignore STOP};
+    \node[fcdec, below=0.65cm of s_ign, text width=2.0cm, aspect=1.4] (s2) {Double-Press\\$n = 1$?};
+    \node[fcproc, below=0.65cm of s2, text width=3.2cm] (s2_arm) 
+      {\textbf{Arm Window}\\[2pt]\footnotesize $n \gets 1, \; w \gets 1.5\,\text{s}$};
+    \node[fcproc, below=0.65cm of s2_arm, text width=3.2cm] (s2_abort) 
+      {\textbf{Force Stop / Reset}\\[2pt]\footnotesize Refund deposit $b$\\Actuators OFF, Unlock Door\\$\rightarrow$ \st{STANDBY}};
 
+    % Main distribution routing
     \draw[fa] (s) -- (k);
-    \draw[fa] (k) -| node[above, pos=0.25, font=\scriptsize]{RUN} (r1);
-    \draw[fa] (k) -- node[right, font=\scriptsize]{PAUSE} (p1);
-    \draw[fa] (k) -| node[above, pos=0.25, font=\scriptsize]{STOP} (s1);
-    \draw[fa] (r1) -| node[above, pos=0.3, font=\scriptsize]{READY} (r2);
-    \draw[fa] (r1) -| node[above, pos=0.3, font=\scriptsize]{PAUSED} (r3);
-    \draw[fa] (r1) -- node[right, pos=0.3, font=\scriptsize]{else} (r4);
-    \draw[fa] (p1) -- node[right, font=\scriptsize]{yes} (p2);
-    \draw[fa] (p1) -| node[above, pos=0.3, font=\scriptsize]{no} (p3);
-    \draw[fa] (s1) -- node[above, font=\scriptsize]{yes} (s1n);
-    \draw[fa] (s1) -- node[right, font=\scriptsize]{no} (s2);
-    \draw[fa] (s2) -- node[above, font=\scriptsize]{no} (s3);
-    \draw[fa] (s2) -- node[right, font=\scriptsize]{yes} (s4);
-  \end{tikzpicture}}
-  \caption{RUN / PAUSE / STOP handling (the 1\,ms tick resets $n$ when $w$ expires)}
+    \draw[fa] (k) -| node[fclbl, above, pos=0.35]{RUN} (r1);
+    \draw[fa] (k) -- node[fclbl, right=2pt, pos=0.45]{PAUSE} (p1);
+    \draw[fa] (k) -| node[fclbl, above, pos=0.35]{STOP} (s1);
+
+    % RUN branch routing
+    \draw[fa] (r1) -- node[fclbl, right=2pt, pos=0.45]{yes} (r1_act);
+    \draw[fa] (r1.west) -- ++(-0.8,0) node[fclbl, midway, above]{no} |- (r2.west);
+    \draw[fa] (r2) -- node[fclbl, right=2pt, pos=0.45]{yes} (r2_act);
+    \draw[fa] (r2.east) -- ++(0.8,0) node[fclbl, midway, above]{no} |- (r_ign.east);
+
+    % PAUSE branch routing
+    \draw[fa] (p1) -- node[fclbl, right=2pt, pos=0.45]{yes} (p1_act);
+    \draw[fa] (p1.east) -- ++(0.9,0) node[fclbl, midway, above]{no} |- (p_ign.east);
+
+    % STOP branch routing
+    \draw[fa] (s1) -- node[fclbl, right=2pt, pos=0.45]{yes} (s_ign);
+    \draw[fa] (s1.west) -- ++(-0.8,0) node[fclbl, midway, above]{no} |- (s2.west);
+    \draw[fa] (s2) -- node[fclbl, right=2pt, pos=0.45]{no} (s2_arm);
+    \draw[fa] (s2.east) -- ++(1.4,0) node[fclbl, midway, above]{yes ($w > 0$)} |- (s2_abort.east);
+  \end{tikzpicture}%
+  }
+  \caption{Button gesture handling logic across discrete operational modes}
   \label{fig:flow-buttons}
 \end{figure}
 
 \subsection{Multi-Gesture Decoding Engine}
 
-Figure~\ref{fig:flow-gesture} details the deterministic 5-state internal sub-machine in
-\code{hal_button_gesture.c} that turns physical debounced key levels into distinct gesture tokens.
-
 \begin{figure}[H]
   \centering
-  \resizebox{0.92\linewidth}{!}{%
-  \begin{tikzpicture}[node distance=0.6cm]
-    \node[fcterm] (s) {Debounced Key State Sampled (1\,ms)};
-    \node[fcdec, below=of s] (down) {Key Pressed?};
-    \node[fcproc, below left=1.0cm and 0.5cm of down] (d1) {State $\gets$ DOWN1\\$t_{\text{down}} \gets 0$};
-    \node[fcdec, below=of d1] (h1) {$t_{\text{down}} \ge 600\,\text{ms}$?};
-    \node[fcproc, left=1.2cm of h1] (hold1) {Emit \code{HOLD1}\\(STOP \#1 / +50\cent)};
-    \node[fcdec, below=of h1] (h2) {$t_{\text{down}} \ge 1200\,\text{ms}$?};
-    \node[fcproc, left=1.2cm of h2] (hold2) {Emit \code{HOLD2}\\(STOP \#2 / Confirm)};
-    \node[fcproc, right=1.6cm of h1] (wait) {Key Released\\State $\gets$ WAIT\\$t_{\text{gap}} \gets 0$};
-    \node[fcdec, below=of wait] (gap) {$t_{\text{gap}} > 250\,\text{ms}$?};
-    \node[fcproc, right=1.2cm of gap] (clk) {Emit \code{CLICK}\\State $\gets$ IDLE};
-    \node[fcdec, below=of gap] (d2) {Second Press\\within $250\,\text{ms}$?};
-    \node[fcproc, below=of d2] (dbl) {Emit \code{DOUBLE}\\State $\gets$ IDLE};
+  \begin{tikzpicture}
+    % Top entry (relative placement, zero inversion)
+    \node[fcterm] (s) at (0, 0.0) {Debounced Key State Sampled (1\,ms)};
+    \node[fcdec, below=0.85cm of s, text width=2.0cm, aspect=1.4] (down) {Key Held\\DOWN?};
 
+    % Left Column: Hold Duration Discrimination
+    \node[fcproc, below left=0.9cm and 1.2cm of down, text width=3.2cm] (d1) 
+      {State $\gets$ \code{DOWN1}\\[2pt]\footnotesize $t_{\text{down}} \gets t_{\text{down}} + 1\,\text{ms}$};
+    \node[fcdec, below=0.65cm of d1, text width=2.0cm, aspect=1.4] (h1) {$t_{\text{down}} \ge 600\,\text{ms}$?};
+    \node[fcproc, below=0.65cm of h1, text width=3.2cm] (hold1) 
+      {Emit \code{HOLD1}\\[2pt]\footnotesize STOP \#1 / 50\cent{} Coin};
+    \node[fcdec, below=0.65cm of hold1, text width=2.0cm, aspect=1.4] (h2) {$t_{\text{down}} \ge 1200\,\text{ms}$?};
+    \node[fcproc, below=0.65cm of h2, text width=3.2cm] (hold2) 
+      {Emit \code{HOLD2}\\[2pt]\footnotesize STOP \#2 / Confirm Fare};
+
+    % Right Column: Multi-Click Timing Discrimination
+    \node[fcproc, below right=0.9cm and 1.2cm of down, text width=3.2cm] (wait) 
+      {Key Released\\State $\gets$ \code{WAIT}\\[2pt]\footnotesize $t_{\text{gap}} \gets t_{\text{gap}} + 1\,\text{ms}$};
+    \node[fcdec, below=0.65cm of wait, text width=2.0cm, aspect=1.4] (gap) {$t_{\text{gap}} > 250\,\text{ms}$?};
+    \node[fcproc, below=0.65cm of gap, text width=3.0cm] (clk) 
+      {Emit \code{CLICK}\\[2pt]\footnotesize State $\gets$ \code{IDLE}};
+    \node[fcdec, below=0.65cm of clk, text width=2.0cm, aspect=1.4] (d2) {Second Press\\within $250\,\text{ms}$?};
+    \node[fcproc, below=0.65cm of d2, text width=3.0cm] (dbl) 
+      {Emit \code{DOUBLE}\\[2pt]\footnotesize State $\gets$ \code{IDLE}};
+
+    % Routing
     \draw[fa] (s) -- (down);
-    \draw[fa] (down) -| node[above, font=\scriptsize, pos=0.3]{yes (IDLE)} (d1);
+    \draw[fa] (down) -| node[fclbl, above, pos=0.35]{yes} (d1);
+    \draw[fa] (down) -| node[fclbl, above, pos=0.35]{released} (wait);
+
     \draw[fa] (d1) -- (h1);
-    \draw[fa] (h1) -- node[above, font=\scriptsize]{yes} (hold1);
-    \draw[fa] (h1) -- node[right, font=\scriptsize]{no} (h2);
-    \draw[fa] (h2) -- node[above, font=\scriptsize]{yes} (hold2);
-    \draw[fa] (h1) -- node[above, font=\scriptsize]{released} (wait);
+    \draw[fa] (h1) -- node[fclbl, right=2pt, pos=0.45]{yes} (hold1);
+    \draw[fa] (hold1) -- (h2);
+    \draw[fa] (h2) -- node[fclbl, right=2pt, pos=0.45]{yes} (hold2);
+
     \draw[fa] (wait) -- (gap);
-    \draw[fa] (gap) -- node[above, font=\scriptsize]{yes} (clk);
-    \draw[fa] (gap) -- node[right, font=\scriptsize]{no} (d2);
-    \draw[fa] (d2) -- node[right, font=\scriptsize]{yes} (dbl);
-  \end{tikzpicture}}
+    \draw[fa] (gap) -- node[fclbl, right=2pt, pos=0.45]{yes (timeout)} (clk);
+    \draw[fa] (gap.east) -- ++(0.9,0) node[fclbl, midway, above]{no} |- (d2.east);
+    \draw[fa] (d2) -- node[fclbl, right=2pt, pos=0.45]{yes} (dbl);
+  \end{tikzpicture}
   \caption{Multi-gesture button decoder sub-machine flowchart}
   \label{fig:flow-gesture}
 \end{figure}
@@ -211,27 +269,30 @@ recovery path governed by Safety Invariant $I_3$ and Assumption A8.
 
 \begin{figure}[H]
   \centering
-  \resizebox{0.90\linewidth}{!}{%
-  \begin{tikzpicture}[node distance=0.55cm]
-    \node[fcterm, fill=red!15] (fault) {\code{WM_EVT_FAULT_OCCURRED} Asserted};
-    \node[fcproc, below=of fault] (save) {Snapshot Active State: $X_{\text{saved}} \gets S$\\Record Error Flags: $f \gets \text{flags}$};
-    \node[fcproc, below=of save] (safe) {Immediate Fail-Safe Shutdown ($T_{\text{react}} \le 30\,\text{ms}$):\\Motor $\gets$ \code{OFF}, Pump $\gets$ \code{OFF}, Valve $\gets$ \code{CLOSED},\\Door Deadbolt $\gets$ \code{UNLOCKED}, RLED $\gets$ \code{BLINK 2Hz}};
-    \node[fcproc, below=of safe] (enter) {Enter \st{ERROR} State\\Lock Out User Command Inputs};
-    \node[fcdec, below=of enter] (wait) {\code{WM_EVT_FAULT_CLEARED}?};
-    \node[fcdec, below=1.0cm of wait] (was_cycle) {$X_{\text{saved}} \in \{\text{\st{RUNNING}}, \text{\st{PAUSED}}\}$\\$\land\; t > 0$?};
-    \node[fcproc, below left=1.0cm and -0.4cm of was_cycle] (res_pause) {Transition to \st{PAUSED}\\Actuators Remain Suspended\\BLED $\gets$ Solid \code{ON}\\Door $\gets$ \code{LOCKED}\\Awaiting \code{RUN} to Resume};
-    \node[fcproc, below right=1.0cm and -0.4cm of was_cycle] (res_idle) {Restore Idle State by Balance:\\$b \ge 50 \implies \text{\st{READY}}$\\$b > 0 \implies \text{\st{COLLECTING}}$\\$b = 0 \implies \text{\st{STANDBY}}$};
+  \begin{tikzpicture}[node distance=0.65cm]
+    \node[fcterm, fill=red!15] (fault) {Safety Fault Asserted};
+    \node[fcproc, below=of fault, text width=9.2cm] (save) 
+      {\textbf{Snapshot Active Operational State}: $X_{\text{saved}} \gets S$\\[2pt]\footnotesize Record Active Fault Flags: $f \gets \text{flags}$};
+    \node[fcproc, below=of save, text width=9.2cm] (safe) 
+      {\textbf{Immediate Fail-Safe Isolation} ($T_{\text{react}} \le 30\,\text{ms}$):\\[2pt]\footnotesize De-energize Actuators (Motor, Pump, Valve), Release Door Deadbolt,\\[1pt]\footnotesize Activate 2.0\,Hz RLED Optical Alarm};
+    \node[fcproc, below=of safe, text width=9.2cm] (enter) 
+      {\textbf{Enter \st{ERROR} Safe State}\\[2pt]\footnotesize Lock Out All User Control Command Inputs};
+    \node[fcdec, below=of enter, text width=2.6cm, aspect=1.4] (wait) {Fault Cleared\\or Reset?};
+    \node[fcdec, below=1.0cm of wait, text width=3.0cm, aspect=1.3] (was_cycle) {$X_{\text{saved}} \in$\\$\{\text{\st{RUNNING}}, \text{\st{PAUSED}}\}$\\$\land\; t > 0$?};
+    \node[fcproc, below left=1.0cm and 0.4cm of was_cycle, text width=4.2cm] (res_pause) 
+      {\textbf{Transition to \st{PAUSED}}\\[2pt]\footnotesize Actuators Stay Suspended\\BLED Solid ON\\Door LOCKED\\Awaiting RUN to Resume Cycle};
+    \node[fcproc, below right=1.0cm and 0.4cm of was_cycle, text width=4.2cm] (res_idle) 
+      {\textbf{Restore Idle State by Balance}:\\[2pt]\footnotesize $b \ge 50 \implies \text{\st{READY}}$\\$0 < b < 50 \implies \text{\st{COLLECTING}}$\\$b = 0 \implies \text{\st{STANDBY}}$};
 
     \draw[fa] (fault) -- (save);
     \draw[fa] (save) -- (safe);
     \draw[fa] (safe) -- (enter);
     \draw[fa] (enter) -- (wait);
-    \draw[fa] (wait) -- node[right, font=\scriptsize]{yes} (was_cycle);
-    \draw[fa] (wait.east) -- ++(2.8,0) node[pos=0.45, above, font=\scriptsize]{no (TICK$_{1\text{s}}$ active)} |- (enter.east);
-    \draw[fa] (was_cycle) -| node[above, font=\scriptsize, pos=0.25]{yes} (res_pause);
-    \draw[fa] (was_cycle) -| node[above, font=\scriptsize, pos=0.25]{no} (res_idle);
-  \end{tikzpicture}}
+    \draw[fa] (wait) -- node[fclbl, right=2pt, pos=0.45]{yes} (was_cycle);
+    \draw[fa] (wait.east) -- ++(4.6,0) |- node[pos=0.25, right, fclbl]{no ($1\,\text{s}$ Tick active)} (enter.east);
+    \draw[fa] (was_cycle) -| node[fclbl, above, pos=0.3]{yes} (res_pause);
+    \draw[fa] (was_cycle) -| node[fclbl, above, pos=0.3]{no} (res_idle);
+  \end{tikzpicture}
   \caption{Emergency fault trip and context-preserving recovery flowchart}
   \label{fig:flow-fault}
 \end{figure}
-

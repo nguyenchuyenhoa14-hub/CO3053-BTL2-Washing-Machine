@@ -40,64 +40,65 @@ plant actuators.
 
 \begin{figure}[H]
   \centering
-  \resizebox{0.95\linewidth}{!}{%
+  \resizebox{\linewidth}{!}{%
   \begin{tikzpicture}[
-      box/.style={draw, thick, rounded corners, align=center, font=\small, fill=white},
-      boundary/.style={draw=blue!70!black, very thick, dashed, rounded corners, fill=blue!2},
+      box/.style={draw, thick, rounded corners, align=center, font=\small, fill=white, inner sep=3pt},
+      boundary/.style={draw=blue!70!black, very thick, dashed, rounded corners=4pt, fill=none},
       sig/.style={thick, -{Stealth[length=2.5mm]}},
       bsig/.style={thick, {Stealth[length=2.5mm]}-{Stealth[length=2.5mm]}},
     ]
-    % Outer boundary
-    \draw[boundary] (-0.8,-3.8) rectangle (10.6,4.2);
-    \node[font=\bfseries\color{blue!70!black}, anchor=north west] at (-0.6,4.0)
-      {System Boundary: Coin-Operated Washing Machine Controller};
+    % Outer controller boundary (generously encloses HAL and EFSM Core with 8mm clearance)
+    \draw[boundary] (1.8,-4.3) rectangle (10.6,4.5);
 
-    % Left: External Inputs & Sensors (generous horizontal and vertical clearance)
-    \node[box, fill=orange!10, text width=3.0cm] (user_in) at (-4.8, 2.3)
-      {\textbf{User Controls}\\[2pt]\scriptsize RUN, PAUSE, STOP\\Coins ($10\,\text{\textcent}, 20\,\text{\textcent}, 50\,\text{\textcent}$)};
-    \node[box, fill=gray!10, text width=3.0cm] (clocks) at (-4.8, 0.0)
-      {\textbf{Time Bases}\\[2pt]\scriptsize 1\,kHz SysTick ($1\,\text{ms}$)\\1\,Hz RTC Tick ($1\,\text{s}$)};
-    \node[box, fill=red!10, text width=3.0cm] (sensors) at (-4.8, -2.3)
-      {\textbf{Safety Sensors}\\[2pt]\scriptsize Door Interlock Switch\\Water Level Sensor\\Motor Current Shunt};
+    % Left: External Inputs & Sensors (width 3.2cm, centers at x=-0.8, y=2.4, 0.0, -2.4)
+    \node[box, fill=orange!10, text width=3.2cm] (user_in) at (-0.8, 2.4)
+      {\textbf{\small User Controls}\\[2pt]\footnotesize RUN / PAUSE\\[1pt]\footnotesize STOP Button\\[1pt]\footnotesize Coins: 10\cent, 20\cent, 50\cent};
+    \node[box, fill=white, text width=3.2cm] (clocks) at (-0.8, 0.0)
+      {\textbf{\small Time Bases}\\[2pt]\footnotesize 1\,kHz SysTick Core\\[1pt]\footnotesize 1\,Hz Periodic Tick};
+    \node[box, fill=red!10, text width=3.2cm] (sensors) at (-0.8, -2.4)
+      {\textbf{\small Safety Sensors}\\[2pt]\footnotesize Door Interlock\\[1pt]\footnotesize Water Level \& Motor};
 
-    % Middle: HAL & Core (wide 2.7cm inter-module gap)
-    \node[box, fill=teal!10, minimum width=3.2cm, minimum height=6.2cm] (hal) at (1.2, 0.0)
-      {\textbf{Hardware Abstraction}\\\textbf{Layer (HAL)}\\[10pt]
-       \scriptsize Debounce Engine ($30\,\text{ms}$)\\[4pt]
-       \scriptsize Double-Press Filter ($1.5\,\text{s}$)\\[4pt]
-       \scriptsize LED Blinker Engine ($1\,\text{Hz}, 2\,\text{Hz}$)\\[4pt]
-       \scriptsize Actuator Interlock Guard};
+    % Inside Boundary: HAL Subsystem (center x=3.6, width 2.6cm, spans x in [2.3, 4.9])
+    \node[box, fill=teal!10, text width=2.6cm, minimum height=5.2cm] (hal) at (3.6, 0.0)
+      {\textbf{Hardware}\\\textbf{Abstraction}\\\textbf{Layer (HAL)}\\[6pt]
+       \footnotesize Debounce ($30\,\text{ms}$)\\[3pt]
+       \footnotesize Double-Press ($1.5\,\text{s}$)\\[3pt]
+       \footnotesize LED Blinker Engine\\[3pt]
+       \footnotesize Interlock Guard};
 
-    \node[box, fill=yellow!15, minimum width=4.6cm, minimum height=6.2cm] (fsm) at (7.8, 0.0)
-      {\textbf{Extended Finite State}\\\textbf{Machine (EFSM) Core}\\[8pt]
-       \scriptsize States: \code{STANDBY}, \code{COLLECTING},\\[-2pt]
-       \scriptsize \code{READY}, \code{RUNNING}, \code{PAUSED}, \code{ERROR}\\[8pt]
-       \scriptsize Extended Context Variables:\\[-2pt]
-       \scriptsize $\code{coin_balance_cents} \in \mathbb{N}$\\[-2pt]
-       \scriptsize $\code{remaining_cycle_sec} \in [0, 1800]$\\[-2pt]
-       \scriptsize $\code{stop_press_count} \in \{0, 1\}$\\[-2pt]
-       \scriptsize $\code{stop_window_timer_ms} \in [0, 1500]$\\[-2pt]
-       \scriptsize $\code{active_error_flags} \in \{0, \dots, 7\}$};
+    % Inside Boundary: EFSM Core (center x=8.2, width 3.8cm, spans x in [6.3, 10.1])
+    \node[box, fill=yellow!15, text width=3.8cm, minimum height=5.2cm] (fsm) at (8.2, 0.0)
+      {\textbf{Deterministic EFSM}\\\textbf{Control Core}\\[5pt]
+       \footnotesize 6 Discrete Modes\\[3pt]
+       \footnotesize Context Vector $\mathbf{c} = (b, t, n, w, f)$:\\[2pt]
+       \footnotesize Balance: $b \ge 0$, Timer: $t \le 1800$\,s\\[1pt]
+       \footnotesize STOP: $n \in \{0, 1\}$, Win: $w \le 1500$\,ms\\[1pt]
+       \footnotesize Fault Flags: $f \in \{0, \dots, 7\}$};
 
-    % Right: Actuators & Indicators (Properly padded text, zero clipping)
-    \node[box, fill=green!10, text width=3.2cm, inner sep=4pt] (ind) at (15.0, 2.0)
-      {\textbf{Optical Indicators}\\[3pt]\scriptsize Red LED (\code{RLED})\\Blue LED (\code{BLED})\\ST7735 LCD Dashboard};
-    \node[box, fill=purple!10, text width=3.2cm, inner sep=4pt] (act) at (15.0, -2.0)
-      {\textbf{Plant Actuators}\\[3pt]\scriptsize Drum Motor (Agitate/Spin)\\Centrifugal Drain Pump\\Water Solenoid Valve\\Door Deadbolt Latch\\Coin Escrow Solenoid};
+    % Right: Optical Displays & Plant Actuators (width 3.2cm, centers at x=13.5, y=1.8, -1.8)
+    \node[box, fill=green!10, text width=3.2cm] (ind) at (13.5, 1.8)
+      {\textbf{\small Optical Displays}\\[2pt]\footnotesize Status LED (PE3)\\[1pt]\footnotesize ST7735 Color LCD};
+    \node[box, fill=purple!10, text width=3.2cm] (act) at (13.5, -1.8)
+      {\textbf{\small Plant Actuators}\\[2pt]\footnotesize Drum Agitator\\[1pt]\footnotesize Centrifugal Drain Pump\\[1pt]\footnotesize Door Lock Solenoid};
 
-    % Input signal routing (Labels placed cleanly before dashed boundary)
-    \draw[sig] (user_in.east) -- node[above, font=\scriptsize, pos=0.45]{Key Gestures} (user_in.east -| hal.west);
-    \draw[sig] (clocks.east) -- node[above, font=\scriptsize, pos=0.45]{Periodic Ticks} (clocks.east -| hal.west);
-    \draw[sig] (sensors.east) -- node[above, font=\scriptsize, pos=0.45]{Fault Assertion} (sensors.east -| hal.west);
+    % Input signal routing (labels placed at pos=0.35, cleanly outside boundary line)
+    \draw[sig] (user_in.east) -- node[above=2pt, font=\footnotesize, fill=white, inner sep=2.5pt, pos=0.35]{Keys} (user_in.east -| hal.west);
+    \draw[sig] (clocks.east) -- node[above=2pt, font=\footnotesize, fill=white, inner sep=2.5pt, pos=0.35]{Ticks} (clocks.east -| hal.west);
+    \draw[sig] (sensors.east) -- node[above=2pt, font=\footnotesize, fill=white, inner sep=2.5pt, pos=0.35]{Faults} (sensors.east -| hal.west);
 
-    % Distinct unidirectional communication between HAL and FSM (ample gap, zero clash)
-    \draw[sig] ([yshift=0.8cm]hal.east) -- node[above, font=\scriptsize]{Events} ([yshift=0.8cm]fsm.west);
-    \draw[sig] ([yshift=-0.8cm]fsm.west) -- node[below, font=\scriptsize]{Commands} ([yshift=-0.8cm]hal.east);
+    % Inter-module communications between HAL and EFSM (clean horizontal arrows)
+    \draw[sig] ([yshift=1.0cm]hal.east) -- node[above=2pt, font=\footnotesize, fill=white, inner sep=2.5pt]{Events} ([yshift=1.0cm]fsm.west);
+    \draw[sig] ([yshift=-1.0cm]fsm.west) -- node[below=2pt, font=\footnotesize, fill=white, inner sep=2.5pt]{Commands} ([yshift=-1.0cm]hal.east);
 
-    % Outputs emerging cleanly past boundary line
-    \draw[sig] ([yshift=0.8cm]fsm.east) -- ++(3.1,0) node[above, font=\scriptsize, pos=0.65]{PWM / GPIO / SPI} -- (ind.west);
-    \draw[sig] ([yshift=-0.8cm]fsm.east) -- ++(3.1,0) node[above, font=\scriptsize, pos=0.65]{Relay / Triac} -- (act.west);
-  \end{tikzpicture}}
+    % Output signal routing to external plant (labels placed at pos=0.5, cleanly centered in 1.8cm gap)
+    \draw[sig] (fsm.east |- ind) -- node[above=2pt, font=\footnotesize, fill=white, inner sep=2.5pt, pos=0.5]{Displays} (ind.west);
+    \draw[sig] (fsm.east |- act) -- node[above=2pt, font=\footnotesize, fill=white, inner sep=2.5pt, pos=0.5]{Actuators} (act.west);
+
+    % System boundary badge drawn on top layer with generous clearance above HAL/FSM
+    \node[font=\footnotesize\bfseries\color{blue!70!black}, fill=white, draw=blue!70!black, rounded corners=2pt, inner sep=3.5pt, anchor=center] at (6.2,4.5)
+      {System Boundary: Washing Machine Controller};
+  \end{tikzpicture}%
+  }
   \caption{Formal system boundary diagram of the coin-operated washing machine control unit}
   \label{fig:sys-boundary}
 \end{figure}
@@ -107,8 +108,7 @@ plant actuators.
 
 To guarantee fail-safe operation under all operating conditions, the software architecture enforces
 five mathematical safety invariants. These invariants are verified at compile-time via static assertions
-and at runtime through the defensive actuator driver \code{hal_actuator_is_safe()} (validated in unit
-test \code{TC-HAL-05}).
+and at runtime through defensive actuator guard assertions.
 
 \begin{enumerate}[leftmargin=*]
   \item \textbf{Invariant $I_1$ (Valve-Pump Mutual Exclusion):}
@@ -124,8 +124,11 @@ test \code{TC-HAL-05}).
   \item \textbf{Invariant $I_2$ (Dynamic Door Deadbolt Safety Interlock):}
         The electromechanical door latch deadbolt must be securely locked whenever the drum motor is active:
         \begin{equation}
-          \forall t \ge 0, \quad \Big(\text{Actuator}_{\text{motor}}(t) \in \{\text{AGITATE}, \text{SPIN}\}\Big) \implies \Big(\text{Actuator}_{\text{door}}(t) = \text{LOCKED}\Big)
-          \label{eq:inv2}
+        \begin{split}
+          \forall t \ge 0, \quad & \Big(\text{Actuator}_{\text{motor}}(t) \in \{\text{AGITATE}, \text{SPIN}\}\Big) \\
+          & \implies \Big(\text{Actuator}_{\text{door}}(t) = \text{LOCKED}\Big)
+        \end{split}
+        \label{eq:inv2}
         \end{equation}
         \emph{Physical Rationale:} Prevents customer access during high-speed rotation ($>800\,\text{RPM}$),
         eliminating the hazard of mechanical entanglement, thermal scalding from hot wash liquor, and sudden room flooding.
@@ -157,8 +160,11 @@ test \code{TC-HAL-05}).
         During an active washing cycle, whether in normal agitation, extraction, or temporary pause,
         the remaining cycle budget $t_{\text{remaining}}$ is strictly non-increasing over wall-clock time:
         \begin{equation}
-          \forall t_1, t_2 \quad \text{such that } t_1 < t_2 \land S(t_1), S(t_2) \in \{\text{RUNNING}, \text{PAUSED}\}, \quad t_{\text{remaining}}(t_2) \le t_{\text{remaining}}(t_1)
-          \label{eq:inv5}
+        \begin{split}
+          \forall t_1, t_2 \quad & \text{such that } t_1 < t_2 \land S(t_1), S(t_2) \in \{\text{RUNNING}, \text{PAUSED}\}, \\
+          & t_{\text{remaining}}(t_2) \le t_{\text{remaining}}(t_1)
+        \end{split}
+        \label{eq:inv5}
         \end{equation}
         Pausing the machine suspends motor motion, but strictly preserves $t_{\text{remaining}}(t_2) < t_{\text{remaining}}(t_1)$
         under the continuous arrival of 1-second system clock ticks.
@@ -180,11 +186,11 @@ State Machine (EFSM)}. The state space is partitioned into:
         \end{equation}
         where:
         \begin{itemize}
-          \item $b$ (\code{coin_balance_cents}): Accumulated financial deposit in cents ($0 \le b \le 9999$).
-          \item $t$ (\code{remaining_cycle_sec}): Cycle countdown down-counter in seconds ($0 \le t \le 1800$).
-          \item $n$ (\code{stop_press_count}): Number of recorded \code{STOP} pulses within the active window ($n \in \{0, 1\}$).
-          \item $w$ (\code{stop_window_timer_ms}): Remaining duration of the double-press detection window ($0 \le w \le 1500\,\text{ms}$).
-          \item $f$ (\code{active_error_flags}): Bitmask of currently active hardware and safety faults.
+          \item $b$: Accumulated financial deposit in cents ($0 \le b \le 9999$).
+          \item $t$: Cycle countdown down-counter in seconds ($0 \le t \le 1800$).
+          \item $n$: Number of recorded \code{STOP} pulses within the active window ($n \in \{0, 1\}$).
+          \item $w$: Remaining duration of the double-press detection window ($0 \le w \le 1500\,\text{ms}$).
+          \item $f$: Bitmask of currently active hardware and safety faults ($f \in \{0, \dots, 7\}$).
         \end{itemize}
 \end{itemize}
 
@@ -193,7 +199,8 @@ State Machine (EFSM)}. The state space is partitioned into:
   \caption{Formal state space of the washing machine control unit}
   \label{tab:states}
   \small
-  \begin{tabularx}{\linewidth}{lL{2.8cm}L{3.2cm}Y}
+  \renewcommand{\arraystretch}{1.2}
+  \begin{tabularx}{\linewidth}{L{2.5cm}L{3.0cm}L{3.6cm}Y}
     \toprule
     \textbf{State Enum} & \textbf{Optical Indicators} & \textbf{Plant Actuators} & \textbf{Functional Description} \\
     \midrule

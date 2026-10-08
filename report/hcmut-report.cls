@@ -9,7 +9,7 @@
 \RequirePackage{anyfontsize,amsmath,amssymb}
 \RequirePackage[T5]{fontenc}
 
-\RequirePackage{geometry,graphicx,indentfirst,setspace}
+\RequirePackage{geometry,graphicx,parskip,setspace}
 \RequirePackage{booktabs}
 \RequirePackage[center]{caption}
 
@@ -37,7 +37,7 @@
   \fi
 }
 
-\newcommand{\@upperuniname}{Vietnam National University Ho Chi Minh City}
+\newcommand{\@upperuniname}{Vietnam National University}
 \newcommand{\@uniname}{Ho Chi Minh City University of Technology}
 
 \newcommand{\@deptname}{Faculty of Computer Science and Engineering}
@@ -68,14 +68,18 @@
 
 \geometry{
   paper=a4paper,
-  left=3cm,
-  right=2cm,
-  vmargin=2cm,
-  includeheadfoot=true,
-  headheight=35pt
+  left=2.5cm,
+  right=2.0cm,
+  top=2.0cm,
+  bottom=2.0cm,
+  headheight=35pt,
+  headsep=12pt,
+  footskip=25pt
 }
 
-\onehalfspacing
+\setstretch{1.2}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt plus 2pt minus 1pt}
 \raggedbottom
 \renewcommand{\arraystretch}{1.2}
 
@@ -94,7 +98,8 @@
   colorlinks=true,
   linkcolor=black,
   citecolor=red,
-  urlcolor=blue
+  urlcolor=blue,
+  plainpages=false
 }
 
 \renewcommand{\headrulewidth}{0.3pt}
