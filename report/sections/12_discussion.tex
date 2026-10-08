@@ -26,9 +26,8 @@ A pivotal engineering challenge in developing the washing machine control unit w
   \end{tabularx}
 \end{table}
 
-\begin{whybox}{Justification of Single-Key Multi-Gesture Decoder on Target Hardware}
-  The commercial WeAct MiniSTM32H750 core board exposes only a single general-purpose user tactile switch (\code{K1} on \code{PC13}); the onboard \code{BOOT0} button cannot be remapped to software GPIO under STM32H7 hardware architecture. Rather than relying solely on external breadboard wiring, a sophisticated \textbf{temporal gesture recognition engine} (\code{hal_button_gesture.c}) was synthesized. By classifying input pulses into Short Click ($<300$\,ms), Double Click ($<300$\,ms inter-tap), and Two-Stage Sustained Hold ($600$\,ms / $1200$\,ms), all seven logical control functions (COIN10, COIN20, COIN50, RUN, PAUSE, STOP, FAULT) are controlled cleanly from a single pin without modifying the core FSM.
-\end{whybox}
+\paragraph{Target Hardware Constraints and Gesture Decoder Justification:}
+The commercial WeAct MiniSTM32H750 core board exposes only a single general-purpose user tactile switch (\code{K1} on \code{PC13}); the onboard \code{BOOT0} button cannot be remapped to software GPIO under STM32H7 hardware architecture. Rather than relying solely on external breadboard wiring, a sophisticated \textbf{temporal gesture recognition engine} (\code{hal_button_gesture.c}) was synthesized. By classifying input pulses into Short Click ($<300$\,ms), Double Click ($<300$\,ms inter-tap), and Two-Stage Sustained Hold ($600$\,ms / $1200$\,ms), all seven logical control functions (COIN10, COIN20, COIN50, RUN, PAUSE, STOP, FAULT) are controlled cleanly from a single pin without modifying the core FSM.
 
 \subsubsection{Kernel Timing: Asynchronous ISR vs. Monotonic Super-Loop}
 

@@ -181,16 +181,15 @@ Transition identifiers T$xx$ correspond bijectively to Table~\ref{tab:transition
 \subsection{Determinism and Completeness Theorem}
 \label{sec:determinism-proof}
 
-\begin{thmbox}[Completeness and Determinism of EFSM $\mathcal{M}$]
-  The state transition function $\delta: (\mathcal{S} \times \mathcal{C}) \times \Sigma \to (\mathcal{S} \times \mathcal{C})$
-  is mathematically complete and strictly deterministic:
-  \begin{equation}
-    \forall (s, c) \in \mathcal{S} \times \mathcal{C}, \quad \forall e \in \Sigma, \quad \big| \delta((s, c), e) \big| = 1
-  \end{equation}
-  That is, for every possible state-context pair $(s, c)$ and every arriving event $e$, exactly one
-  valid next state and context mutation exists. Undefined behavior, nondeterministic branching, and
-  deadlocks are mathematically impossible.
-\end{thmbox}
+\paragraph{Theorem 4.1 (Completeness and Determinism of EFSM $\mathcal{M}$):}
+\textit{The state transition function $\delta: (\mathcal{S} \times \mathcal{C}) \times \Sigma \to (\mathcal{S} \times \mathcal{C})$
+is mathematically complete and strictly deterministic:
+\begin{equation}
+  \forall (s, c) \in \mathcal{S} \times \mathcal{C}, \quad \forall e \in \Sigma, \quad \big| \delta((s, c), e) \big| = 1
+\end{equation}
+That is, for every possible state-context pair $(s, c)$ and every arriving event $e$, exactly one
+valid next state and context mutation exists. Undefined behavior, nondeterministic branching, and
+deadlocks are mathematically impossible.}
 
 \paragraph{Proof of Determinism and Deadlock Freedom:}
 To prove determinism and exhaustiveness, the entire Cartesian product space of qualitative states

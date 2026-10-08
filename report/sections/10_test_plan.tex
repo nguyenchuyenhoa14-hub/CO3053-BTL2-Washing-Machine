@@ -83,14 +83,13 @@ The 94 automated unit tests are partitioned across five specialized test executa
 
 A prominent advantage of the Mock HAL architecture is the ability to validate temporal boundary conditions with microsecond precision, completely free of human reaction variance.
 
-\begin{whybox}{Boundary Verification of Double-STOP Window (TC-22)}
-  Functional Requirement FR-08 and Assumption A1 specify that forced termination requires two successive STOP presses within $T_{\text{double}} \le 1500$\,ms. Test case \code{TC-22} validates the exact temporal threshold by driving the simulated clock:
-  \begin{itemize}
-    \item \textbf{Case A ($t = 1499$\,ms):} The second press is injected exactly $1499$\,ms after the first. Guard condition $(1499 \le 1500)$ evaluates to TRUE: the system immediately forces state transition to \code{STANDBY}, cancels the motor, and unlocks the door.
-    \item \textbf{Case B ($t = 1501$\,ms):} The second press arrives $1501$\,ms after the first. Guard condition $(1501 \le 1500)$ evaluates to FALSE: the previous press has expired. The second press is registered as a fresh first press; the machine remains in \code{RUNNING} mode without interruption.
-  \end{itemize}
-  This sub-millisecond precision proves mathematical determinism of the control core.
-\end{whybox}
+\paragraph{Boundary Verification of Double-STOP Window (TC-22):}
+Functional Requirement FR-08 and Assumption A1 specify that forced termination requires two successive STOP presses within $T_{\text{double}} \le 1500$\,ms. Test case \code{TC-22} validates the exact temporal threshold by driving the simulated clock:
+\begin{itemize}
+  \item \textbf{Case A ($t = 1499$\,ms):} The second press is injected exactly $1499$\,ms after the first. Guard condition $(1499 \le 1500)$ evaluates to TRUE: the system immediately forces state transition to \code{STANDBY}, cancels the motor, and unlocks the door.
+  \item \textbf{Case B ($t = 1501$\,ms):} The second press arrives $1501$\,ms after the first. Guard condition $(1501 \le 1500)$ evaluates to FALSE: the previous press has expired. The second press is registered as a fresh first press; the machine remains in \code{RUNNING} mode without interruption.
+\end{itemize}
+This sub-millisecond precision proves mathematical determinism of the control core.
 
 \subsection{Physical In-System Test Scenarios}
 

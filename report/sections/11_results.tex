@@ -218,10 +218,10 @@ Memory consumption of the target executable (\code{build/h750/washer.elf}) was q
   \end{tabularx}
 \end{table}
 
-\begin{whybox}{Memory Allocation Engineering Justification}
-  \begin{itemize}
-    \item \textbf{Flash Efficiency ($9\,344$\,B total):} The entire control unit, font glyph table, graphical rendering routines, and bare-metal peripheral drivers occupy merely $7.12$\,\% of the microcontroller's 128\,KB internal Flash, leaving over $118$\,KB available for future expansion (e.g., IoT connectivity or full RTOS integration).
-    \item \textbf{RAM Determinism ($25\,776$\,B total):} Over $99.3$\,\% ($25\,600$\,bytes) of allocated SRAM is dedicated exclusively to the off-screen double-buffered graphics frame buffer. The entire logical state of the washing machine control system (FSM context, timers, debouncers, blinkers) requires merely \textbf{176 bytes} of memory.
-    \item \textbf{Zero Heap Integrity ($0$\,B):} In strict compliance with MISRA-C:2012 Rule 21.3, dynamic memory allocation is banned. Memory exhaustion, pointer aliasing, and memory fragmentation bugs are mathematically impossible by design.
-  \end{itemize}
-\end{whybox}
+\subsection{Memory Allocation Engineering Justification}
+An analysis of the memory footprint in Table~\ref{tab:memory-footprint} demonstrates the deterministic properties of the bare-metal architecture:
+\begin{itemize}
+  \item \textbf{Flash Efficiency ($9\,344$\,B total):} The entire control unit, font glyph table, graphical rendering routines, and bare-metal peripheral drivers occupy merely $7.12$\,\% of the microcontroller's 128\,KB internal Flash, leaving over $118$\,KB available for future expansion (e.g., IoT connectivity or full RTOS integration).
+  \item \textbf{RAM Determinism ($25\,776$\,B total):} Over $99.3$\,\% ($25\,600$\,bytes) of allocated SRAM is dedicated exclusively to the off-screen double-buffered graphics frame buffer. The entire logical state of the washing machine control system (FSM context, timers, debouncers, blinkers) requires merely \textbf{176 bytes} of memory.
+  \item \textbf{Zero Heap Integrity ($0$\,B):} In strict compliance with MISRA-C:2012 Rule 21.3, dynamic memory allocation is banned. Memory exhaustion, pointer aliasing, and memory fragmentation bugs are mathematically impossible by design.
+\end{itemize}

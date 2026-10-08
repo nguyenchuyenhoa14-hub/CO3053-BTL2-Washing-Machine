@@ -22,7 +22,6 @@
 \usepackage{textcomp}
 \usepackage{xurl}
 \usepackage{tikz}
-\usepackage[most]{tcolorbox}
 \usepackage{qrcode}
 \usetikzlibrary{arrows.meta,positioning,shapes.geometric,shapes.misc,calc,fit,backgrounds}
 
@@ -87,38 +86,8 @@
 \newcommand{\st}[1]{\texttt{\textbf{#1}}}
 \DeclareRobustCommand{\code}[1]{\texttt{\detokenize{#1}}}
 
-% "Where the numbers come from" callout box (Assignment 1 standard)
-\newtcolorbox{whybox}[1][]{
-  enhanced,
-  colback=blue!2!gray!6,
-  colframe=blue!60!black,
-  boxrule=0.8pt,
-  arc=1.5mm,
-  left=3mm, right=3mm, top=3.5mm, bottom=2.5mm,
-  fonttitle=\bfseries\footnotesize,
-  title={Where the numbers come from\ifx&#1&\else: #1\fi},
-  coltitle=blue!90!black,
-  colbacktitle=blue!10,
-  attach boxed title to top left={yshift=-2mm, xshift=3mm},
-  boxed title style={boxrule=0.5pt, arc=1mm}
-}
-\newcommand{\why}[2][]{\par\vspace{0.3em}\noindent\begin{whybox}[#1]\small #2\end{whybox}\vspace{0.3em}}
-
-% Formal Theorem environment (Assignment 1 mathematical standard)
-\newtcolorbox{thmbox}[1][]{
-  enhanced,
-  colback=teal!2!gray!5,
-  colframe=teal!60!black,
-  boxrule=0.8pt,
-  arc=1.5mm,
-  left=3mm, right=3mm, top=3.5mm, bottom=2.5mm,
-  fonttitle=\bfseries\footnotesize,
-  title={Theorem\ifx&#1&\else: #1\fi},
-  coltitle=teal!90!black,
-  colbacktitle=teal!10,
-  attach boxed title to top left={yshift=-2mm, xshift=3mm},
-  boxed title style={boxrule=0.5pt, arc=1mm}
-}
+% "Where the numbers come from" explanation (Assignment 1 benchmark standard)
+\newcommand{\why}[1]{\par\vspace{0.4em}\noindent\colorbox{gray!10}{\parbox{\dimexpr\linewidth-2\fboxsep}{\small\textbf{Where the numbers come from.} #1}}\par\vspace{0.4em}}
 
 
 \newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
