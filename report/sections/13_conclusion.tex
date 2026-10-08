@@ -24,25 +24,25 @@ Table~\ref{tab:compliance} provides an exhaustive, line-by-line verification che
   \centering
   \caption{100\,\% Assignment Specification Compliance Verification Matrix}
   \label{tab:compliance}
-  \begin{tabularx}{\linewidth}{lp{6.2cm}Xcc}
+  \begin{tabularx}{\linewidth}{lp{4.6cm}Yp{3.8cm}}
     \toprule
-    \textbf{No.} & \textbf{Course Slide Specification Clause} & \textbf{Implemented Mechanism / Verification} & \textbf{Tests} & \textbf{Status} \\
+    \textbf{No.} & \textbf{Course Slide Specification Clause} & \textbf{Implemented Architecture \& Source Artifact} & \textbf{Verification Evidence \& Tests} \\
     \midrule
-    1 & Coin acceptance: 10\cent, 20\cent, 50\cent & Multi-pulse decoder and software accumulator & TC-01, 02, 03 & \pass \\
-    2 & Minimum activation threshold: 50\cent & Guard condition $(B \ge 50)$ controls READY transition & TC-02, TC-05 & \pass \\
-    3 & No change return (Balance cleared on RUN) & Immediate balance reset ($B \leftarrow 0$) on RUN & TC-04, TC-13 & \pass \\
-    4 & Fixed 30-minute wash countdown ($1800$\,s) & Non-blocking SysTick down-counter ($1800$\,s) & TC-04, TC-12 & \pass \\
-    5 & RLED: Solid ON in Standby & Moore entry action in \code{STANDBY}: RLED Solid ON & TC-01, TC-31 & \pass \\
-    6 & RLED: Blinking in Error mode & Moore entry action in \code{ERROR}: RLED 2.0\,Hz & TC-13, TC-16 & \pass \\
-    7 & BLED: Solid ON in Ready mode & Moore entry action in \code{READY}: BLED Solid ON & TC-02, TC-03 & \pass \\
-    8 & BLED: Blinking in Running mode & Moore entry action in \code{RUNNING}: BLED 1.0\,Hz & TC-04, TC-05 & \pass \\
-    9 & Three physical controls: STOP, RUN, PAUSE & Hardware abstraction supporting discrete / gesture keys & TC-06, 09, 10 & \pass \\
-    10 & PAUSE stops wash, \textbf{timer keeps running} & Actuators cut; timer decrement persists in PAUSED & TC-06, TC-07 & \pass \\
-    11 & Press RUN from PAUSE resumes washing & Actuators re-engage seamlessly; timer continues & TC-06, TC-14 & \pass \\
-    12 & STOP twice to force stop ($T_{\text{double}} \le 1.5$\,s) & Two-press sliding window; single press ignored & TC-09, 10, 22 & \pass \\
-    13 & Single STOP press does not terminate & First STOP solely arms countdown; cycle continues & TC-09, TC-19 & \pass \\
-    14 & Timer expiration ($t=0$) terminates cycle & Automatic transition to STANDBY, door unlocks & TC-08, TC-12 & \pass \\
-    15 & Emergency fault detection and alarm & Immediate actuator trip, door unlock, 2.0\,Hz RLED & TC-13, TC-17 & \pass \\
+    1 & Coin acceptance: 10\cent, 20\cent, 50\cent & Multi-pulse decoder and software accumulator in \code{hal_button_engine.c} & Automated unit tests (TC-01, 02, 03, HAL-02) \\
+    2 & Minimum activation threshold: 50\cent & Guard condition $(B \ge 50)$ controls READY transition in \code{washing_machine_fsm.c} & Boundary test suite (TC-02, TC-05, 2BTN-05) \\
+    3 & No change return (Balance cleared on RUN) & Immediate balance reset ($B \leftarrow 0$) on RUN transition in \code{washing_machine_fsm.c} & Atomic state mutation (TC-04, TC-13, 2BTN-06) \\
+    4 & Fixed 30-minute wash countdown ($1800$\,s) & Non-blocking SysTick down-counter prescaler in \code{washing_machine_fsm.c} & Long soak temporal progression (TC-04, TC-12) \\
+    5 & RLED: Solid ON in Standby & Moore entry action in \code{STANDBY}: RLED Solid ON in \code{washing_machine_fsm.c} & Static output inspection (TC-01, TC-31) \\
+    6 & RLED: Blinking in Error mode & Moore entry action in \code{ERROR}: RLED 2.0\,Hz strobe in \code{hal_led_blinker.c} & Oscilloscope \& unit tests (TC-13, TC-16) \\
+    7 & BLED: Solid ON in Ready mode & Moore entry action in \code{READY}: BLED Solid ON in \code{washing_machine_fsm.c} & Output pin telemetry (TC-02, TC-03) \\
+    8 & BLED: Blinking in Running mode & Moore entry action in \code{RUNNING}: BLED 1.0\,Hz in \code{hal_led_blinker.c} & Periodic waveform timing (TC-04, TC-05) \\
+    9 & Three physical controls: STOP, RUN, PAUSE & Hardware abstraction supporting discrete / gesture keys in \code{hal_button_engine.c} & Integration suites (TC-06, 09, 10, GEST-01) \\
+    10 & PAUSE stops wash, \textbf{timer keeps running} & Actuators cut; timer decrement persists in PAUSED in \code{washing_machine_fsm.c} & Clock persistence check (TC-06, TC-07, TC-29) \\
+    11 & Press RUN from PAUSE resumes washing & Actuators re-engage seamlessly; timer continues in \code{washing_machine_fsm.c} & Resumption invariant (TC-06, TC-14, GEST-17) \\
+    12 & STOP twice to force stop ($T_{\text{double}} \le 1.5$\,s) & Two-press sliding window in \code{hal_button_gesture.c} & Temporal boundary (TC-09, 10, 22, GEST-11) \\
+    13 & Single STOP press does not terminate & First STOP solely arms countdown; cycle continues in \code{washing_machine_fsm.c} & Safety window filter (TC-09, TC-19) \\
+    14 & Timer expiration ($t=0$) terminates cycle & Automatic transition to STANDBY, door unlocks in \code{washing_machine_fsm.c} & Terminal state guard (TC-08, TC-12, TC-29) \\
+    15 & Emergency fault detection and alarm & Immediate actuator trip, door unlock, 2.0\,Hz RLED in \code{board_h750.c} & Fault injection \& HIL test (TC-13, TC-17) \\
     \bottomrule
   \end{tabularx}
 \end{table}

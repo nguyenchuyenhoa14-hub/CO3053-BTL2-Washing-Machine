@@ -15,51 +15,51 @@ In accordance with rigorous embedded systems engineering principles~\cite{marwed
 
 \subsection{Requirements Traceability Matrix (RTM)}
 
-Table~\ref{tab:rtm} provides a bidirectional mapping linking every functional requirement (FR-01--FR-11), formal assumption (A1--A10), and non-functional requirement (NFR-01--NFR-05) directly to the corresponding verification suite, test identifiers, and execution status.
+Table~\ref{tab:rtm} provides a bidirectional mapping linking every functional requirement (FR-01--FR-11), formal assumption (A1--A10), and non-functional requirement (NFR-01--NFR-05) directly to its source code implementation artifact, verification method, and automated test identifiers.
 
 \begingroup
 \small
 \setlength{\tabcolsep}{3.5pt}
-\begin{longtable}{L{1.4cm}L{3.8cm}L{3.0cm}L{4.2cm}C{1.6cm}}
+\begin{longtable}{L{1.3cm}L{3.9cm}L{3.8cm}L{3.8cm}L{3.0cm}}
   \caption{Formal Requirements Traceability Matrix (RTM)}\label{tab:rtm}\\
   \toprule
-  \textbf{Req. ID} & \textbf{Requirement Specification} & \textbf{Target Subsystem} & \textbf{Automated Test Identifier} & \textbf{Status} \\
+  \textbf{Req. ID} & \textbf{Requirement Specification} & \textbf{Implementation Artifact} & \textbf{Verification Method} & \textbf{Traceable Tests} \\
   \midrule
   \endfirsthead
   \toprule
-  \textbf{Req. ID} & \textbf{Requirement Specification} & \textbf{Target Subsystem} & \textbf{Automated Test Identifier} & \textbf{Status} \\
+  \textbf{Req. ID} & \textbf{Requirement Specification} & \textbf{Implementation Artifact} & \textbf{Verification Method} & \textbf{Traceable Tests} \\
   \midrule
   \endhead
   \bottomrule
   \endfoot
-  FR-01 & Coin acceptance (10\cent, 20\cent, 50\cent) & Accumulator / HAL & TC-01, TC-02, TC-03, TC-31, HAL-02, HAL-05 & \pass \\
-  FR-02 & Minimum activation threshold (50\cent) & FSM Guard $\delta_1$ & TC-02, TC-05, TC-31, 2BTN-05, 2BTN-08 & \pass \\
-  FR-03 & Immediate balance clear upon RUN (Zero refund) & FSM Action $\omega_3$ & TC-04, TC-13, TC-21, 2BTN-06 & \pass \\
-  FR-04 & 30-minute countdown cycle ($1800$\,s) & Timer / Super-loop & TC-04, TC-12, TC-21 & \pass \\
-  FR-05 & Dual-colour LED status encoding & Blinker / HAL Engine & TC-01, TC-02, TC-04, TC-06, TC-13, HAL-03 & \pass \\
-  FR-06 & Actuator cutoff with continuous timer in PAUSED & FSM Logic / Actuators & TC-06, TC-07, TC-08, TC-29 & \pass \\
-  FR-07 & Seamless cycle resumption from PAUSED & FSM Logic / Actuators & TC-06, TC-07, TC-14, GEST-17 & \pass \\
-  FR-08 & Double-press STOP confirmation ($T_{\text{double}} \le 1.5$\,s) & Input Safety Window & TC-09, TC-10, TC-11, TC-19, TC-22 & \pass \\
-  FR-09 & Automatic cycle termination at $t_{\text{remain}} = 0$ & FSM Guard $\delta_6$ & TC-08, TC-12, TC-21, TC-29 & \pass \\
-  FR-10 & Standby visual indication (RLED Solid ON) & FSM Moore Output & TC-01, TC-04, TC-12, TC-21, TC-31 & \pass \\
-  FR-11 & Hardware fault trip and visual alarm (RLED 2\,Hz) & Fault Subsystem & TC-13, TC-16, TC-17, TC-24, TC-33, TC-34 & \pass \\
+  FR-01 & Coin acceptance (10\cent, 20\cent, 50\cent) & \code{hal_button_engine.c} & Pulse train decoding \& burst queue & TC-01, TC-02, TC-03, TC-31, HAL-02 \\
+  FR-02 & Minimum activation threshold (50\cent) & \code{washing_machine_fsm.c} & Boundary guard evaluation ($B \ge 50$) & TC-02, TC-05, TC-31, 2BTN-05 \\
+  FR-03 & Immediate balance clear upon RUN & \code{washing_machine_fsm.c} & Atomic state mutation ($B \leftarrow 0$) & TC-04, TC-13, TC-21, 2BTN-06 \\
+  FR-04 & 30-minute countdown cycle ($1800$\,s) & \code{washing_machine_fsm.c} & Non-blocking SysTick 1\,s prescaler & TC-04, TC-12, TC-21 \\
+  FR-05 & Dual-colour LED status encoding & \code{hal_led_blinker.c} & Periodic waveform phase tracking & TC-01, TC-02, TC-04, TC-06, HAL-03 \\
+  FR-06 & Actuator cutoff with continuous timer & \code{washing_machine_fsm.c} & Actuator trip assertion \& clock soak & TC-06, TC-07, TC-08, TC-29 \\
+  FR-07 & Seamless cycle resumption from PAUSED & \code{washing_machine_fsm.c} & Context preservation invariant check & TC-06, TC-07, TC-14, GEST-17 \\
+  FR-08 & Double-press STOP ($T_{\text{double}} \le 1.5$\,s) & \code{hal_button_gesture.c} & Sub-ms window boundary ($1499$ vs $1501$\,ms) & TC-09, TC-10, TC-11, TC-19, TC-22 \\
+  FR-09 & Automatic termination at $t_{\text{remain}} = 0$ & \code{washing_machine_fsm.c} & Zero-timer guard condition transition & TC-08, TC-12, TC-21, TC-29 \\
+  FR-10 & Standby visual indication (RLED Solid ON) & \code{washing_machine_fsm.c} & Static Moore output vector assertion & TC-01, TC-04, TC-12, TC-21, TC-31 \\
+  FR-11 & Hardware fault trip and visual alarm & \code{hal_led_blinker.c} & Fault injection \& $2.0$\,Hz alarm strobe & TC-13, TC-16, TC-17, TC-24, TC-33 \\
   \midrule
-  A1 & Maximum double-stop window ($1500$\,ms) & Timing Guard & TC-10, TC-19, TC-22, GEST-11 & \pass \\
-  A2 & Premature RUN rejection ($B < 50$\cent) & FSM Guard & TC-05, 2BTN-08 & \pass \\
-  A3 & Coin lockout during active wash/fault & Coin Discriminator & TC-15, TC-17, 2BTN-15 & \pass \\
-  A4 & Actuator safety interlock ($\text{Agit} \land \text{Spin} = \emptyset$) & Actuator HAL Driver & TC-26, HAL-04 & \pass \\
-  A5 & Modulo phase-preserving blinker generation & Blinker HAL Driver & HAL-03 & \pass \\
-  A6 & Pre-wash cancellation and deposit return & Accounting Guard & TC-18, TC-32, 2BTN-17 & \pass \\
-  A7 & Persistent timer timeout during pause & Safety Timeout & TC-08, TC-29 & \pass \\
-  A8 & Context-preserving fault recovery & Recovery Subsystem & TC-13, TC-33, TC-34, GEST-19 & \pass \\
-  A9 & Two-phase wash profile ($5/6$ Agitate, $1/6$ Spin) & Profile Manager & TC-26, TC-28, TC-29 & \pass \\
-  A10 & Monotonic SysTick catch-up loop & Core Kernel Loop & TC-07, TC-12, HAL-01, HAL-03 & \pass \\
+  A1 & Maximum double-stop window ($1500$\,ms) & \code{washing_machine_config.h} & Microsecond clock simulation & TC-10, TC-19, TC-22, GEST-11 \\
+  A2 & Premature RUN rejection ($B < 50$\cent) & \code{washing_machine_fsm.c} & Negative sub-threshold injection & TC-05, 2BTN-08 \\
+  A3 & Coin lockout during active wash/fault & \code{washing_machine_fsm.c} & Mid-cycle coin pulse masking test & TC-15, TC-17, 2BTN-15 \\
+  A4 & Actuator safety interlock ($\text{Agit} \land \text{Spin} = \emptyset$) & \code{board_h750.c} & Hardware interlock assertion check & TC-26, HAL-04 \\
+  A5 & Modulo phase-preserving blinker & \code{hal_led_blinker.c} & Phase continuity \& frequency audit & HAL-03 \\
+  A6 & Pre-wash cancellation and deposit return & \code{washing_machine_fsm.c} & Pre-wash accounting guard test & TC-18, TC-32, 2BTN-17 \\
+  A7 & Persistent timer timeout during pause & \code{washing_machine_fsm.c} & Extended soak simulation until $t=0$ & TC-08, TC-29 \\
+  A8 & Context-preserving fault recovery & \code{washing_machine_fsm.c} & Fault clear \& state restoration test & TC-13, TC-33, TC-34, GEST-19 \\
+  A9 & Two-phase wash profile ($5/6$ Agit, $1/6$ Spin) & \code{washing_machine_fsm.c} & Sub-cycle phase transition boundary & TC-26, TC-28, TC-29 \\
+  A10 & Monotonic SysTick catch-up loop & \code{main_h750.c} & Blocking super-loop jitter injection & TC-07, TC-12, HAL-01, HAL-03 \\
   \midrule
-  NFR-01 & Mechanical switch debounce ($T_{\text{deb}} = 30$\,ms) & Integrating Filter & HAL-01, GEST-02 & \pass \\
-  NFR-02 & Zero blocking delays in super-loop & Real-Time Kernel & HAL-03, Board Telemetry & \pass \\
-  NFR-03 & Deterministic zero heap memory ($\text{Heap} = 0$\,B) & Memory Architecture & TC-20, TC-21, Mapfile Audit & \pass \\
-  NFR-04 & Hardware Abstraction Layer decoupling (DIP) & Architecture & TC-20, HAL-06 & \pass \\
-  NFR-05 & Worst-case response latency ($T_{\text{react}} \le 30$\,ms) & Real-Time Kernel & HAL-01, GEST-01 & \pass \\
+  NFR-01 & Mechanical switch debounce ($30$\,ms) & \code{hal_button_engine.c} & $1$\,kHz contact bounce chatter stress & HAL-01, GEST-02 \\
+  NFR-02 & Zero blocking delays in super-loop & \code{main_h750.c} & Static code audit \& non-blocking test & HAL-03, Board Telemetry \\
+  NFR-03 & Deterministic zero heap memory ($0$\,B) & \code{stm32h750.ld} & Static ELF mapfile symbol inspection & TC-20, TC-21, Mapfile Audit \\
+  NFR-04 & HAL architectural decoupling (DIP) & \code{src/hal/*.h} & Cross-platform headless test build & TC-20, HAL-06 \\
+  NFR-05 & Worst-case response latency ($\le 30$\,ms) & \code{main_h750.c} & End-to-end event response profiling & HAL-01, GEST-01 \\
 \end{longtable}
 \endgroup
 

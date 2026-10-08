@@ -62,38 +62,38 @@ Table~\ref{tab:hwresults} summarizes the observed behavioral outcomes across all
 \begingroup
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{longtable}{L{1.2cm}L{3.2cm}L{6.2cm}C{1.8cm}}
+\begin{longtable}{L{1.3cm}L{3.2cm}L{7.5cm}L{3.8cm}}
   \caption{In-System Physical Test Results on STM32H750VBT6 Target}\label{tab:hwresults}\\
   \toprule
-  \textbf{Test ID} & \textbf{Operating State} & \textbf{Observed Physical Behavior and Dashboard Feedback} & \textbf{Verification} \\
+  \textbf{Test ID} & \textbf{Stimulus / Mode} & \textbf{Observed Physical Behavior and Dashboard Feedback} & \textbf{Measured Electrical / Logic Output} \\
   \midrule
   \endfirsthead
   \toprule
-  \textbf{Test ID} & \textbf{Operating State} & \textbf{Observed Physical Behavior and Dashboard Feedback} & \textbf{Verification} \\
+  \textbf{Test ID} & \textbf{Stimulus / Mode} & \textbf{Observed Physical Behavior and Dashboard Feedback} & \textbf{Measured Electrical / Logic Output} \\
   \midrule
   \endhead
   \bottomrule
   \endfoot
-  TC01 & Power-on Boot & STANDBY screen displayed; RLED Solid ON, BLED OFF; Motor cut & \pass \\
-  TC02 & Sub-threshold & Staged balance increments to 10\cent; RLED remains Solid ON & \pass \\
-  TC03 & Threshold reached & Balance reaches 50\cent; LCD displays READY; BLED Solid ON & \pass \\
-  TC04 & Premature RUN & LCD flashes ``NOT ENOUGH''; stays safe; balance preserved & \pass \\
-  TC05 & Cycle initiation & Transitions to RUNNING; 30:00 countdown starts; BLED 1\,Hz & \pass \\
-  TC06 & Mid-cycle PAUSE & Actuators cut; BLED Solid ON; Timer visibly ticks down & \pass \\
-  TC07 & Wash resumption & Actuators re-engage immediately; BLED returns to 1\,Hz blink & \pass \\
-  TC08 & Cycle expiration & At 00:00, actuators stop, door unlocks, returns to STANDBY & \pass \\
-  TC09 & Expiry in PAUSE & At 00:00 in PAUSED, system transitions safely to STANDBY & \pass \\
-  TC10 & Single STOP press & Visual hold indicator displays; cycle continues undisturbed & \pass \\
-  TC11 & Forced double-STOP & Second press confirms abort; immediate shutdown to STANDBY & \pass \\
-  TC12 & Expired double-STOP & Second press after 1.5\,s ignored as abort; wash continues & \pass \\
-  TC13 & Surplus coin swallow & Insert 70\cent; starts wash; balance resets to 0\cent; zero change & \pass \\
-  TC14 & Mid-wash deposit & Additional coin pulses during wash ignored by accumulator & \pass \\
-  TC15 & Session cancel & In READY, double-STOP triggers refund notice; returns to STANDBY & \pass \\
-  TC16 & Hardware fault trip & Double-click injects fault; LCD shows ERROR; RLED 2\,Hz & \pass \\
-  TC17 & Fault recovery & Fault cleared; restored to PAUSED; accumulated time intact & \pass \\
-  TC18 & Wash sub-phases & First $25$\,min Agitate; final $5$\,min Spin + Pump activated & \pass \\
-  TC19 & Blinker validation & Flash rate measured on PE3: exactly 1.0\,Hz and 2.0\,Hz & \pass \\
-  TC20 & Switch debounce & 50 rapid mechanical clicks produce zero false double-triggers & \pass \\
+  TC01 & Power-on Boot & STANDBY screen displayed; RLED Solid ON, BLED OFF; Motor cut & $V_{\text{motor}} = 0$\,V, RLED ON ($3.3$\,V) \\
+  TC02 & Sub-threshold ($10$\cent) & Staged balance increments to 10\cent; RLED remains Solid ON & $B = 10$\cent, BLED OFF ($0$\,V) \\
+  TC03 & Threshold reached ($50$\cent) & Balance reaches 50\cent; LCD displays READY; BLED Solid ON & $B = 50$\cent, BLED ON ($3.3$\,V) \\
+  TC04 & Premature RUN ($B < 50$\cent) & LCD flashes ``NOT ENOUGH''; stays safe; balance preserved & Balance preserved, Motor disabled \\
+  TC05 & Cycle initiation (RUN) & Transitions to RUNNING; 30:00 countdown starts; BLED 1\,Hz & $T_{\text{remain}} = 1800$\,s, BLED $1.00$\,Hz \\
+  TC06 & Mid-cycle PAUSE & Actuators cut; BLED Solid ON; Timer visibly ticks down & Motor TRIP ($0$\,V), Timer ticks down \\
+  TC07 & Wash resumption & Actuators re-engage immediately; BLED returns to 1\,Hz blink & Motor ENGAGED, BLED $1.00$\,Hz \\
+  TC08 & Cycle expiration & At 00:00, actuators stop, door unlocks, returns to STANDBY & $T = 00:00$, Solenoid pulse, STANDBY \\
+  TC09 & Expiry in PAUSE & At 00:00 in PAUSED, system transitions safely to STANDBY & Invariant preserved, Safe shutdown \\
+  TC10 & Single STOP press & Visual hold indicator displays; cycle continues undisturbed & Window armed ($1500$\,ms), Wash active \\
+  TC11 & Forced double-STOP & Second press confirms abort; immediate shutdown to STANDBY & Inter-tap $620$\,ms $\implies$ Instant abort \\
+  TC12 & Expired double-STOP & Second press after 1.5\,s ignored as abort; wash continues & Inter-tap $1550$\,ms $\implies$ Abort ignored \\
+  TC13 & Surplus coin swallow & Insert 70\cent; starts wash; balance resets to 0\cent; zero change & Balance cleared to $0$\cent, Zero refund \\
+  TC14 & Mid-wash deposit & Additional coin pulses during wash ignored by accumulator & Extra pulses masked, Balance unchanged \\
+  TC15 & Session cancel & In READY, double-STOP triggers refund notice; returns to STANDBY & Deposit returned, Return to STANDBY \\
+  TC16 & Hardware fault trip & Double-click injects fault; LCD shows ERROR; RLED 2\,Hz & Relay TRIP, RLED $2.00$\,Hz strobe \\
+  TC17 & Fault recovery & Fault cleared; restored to PAUSED; accumulated time intact & $T_{\text{remain}}$ preserved, State restored \\
+  TC18 & Wash sub-phases & First $25$\,min Agitate; final $5$\,min Spin + Pump activated & Sub-cycle transition at $T = 300$\,s \\
+  TC19 & Blinker validation & Flash rate measured on PE3: exactly 1.0\,Hz and 2.0\,Hz & Oscilloscope: $1.000$\,Hz \& $2.000$\,Hz \\
+  TC20 & Switch debounce & 50 rapid mechanical clicks produce zero false double-triggers & 50 clicks: zero bounce glitches \\
 \end{longtable}
 \endgroup
 
