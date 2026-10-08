@@ -1,0 +1,5 @@
+  [PASS] returned length matches
+  [PASS] RUNNING line
+  [PASS] STANDBY shows full cycle time, coin and fault
+  [PASS] truncation is safe and NUL-terminated
+ALL UI TEXT TESTS PASSED

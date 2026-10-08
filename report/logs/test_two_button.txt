@@ -1,0 +1,20 @@
+=== Two-button front panel tests ===
+  [PASS] K1 click: +10c staged, FSM untouched
+  [PASS] K1 double-click: +20c
+  [PASS] K1 HOLD1 alone changes nothing (still deciding)
+  [PASS] K1 hold+release: +50c, still waits for confirm
+  [PASS] K1 hold to 1.2 s with 80c -> READY, 30c change returned
+  [PASS] FSM balance is exactly the fare
+  [PASS] exactly 50c -> READY, no change
+  [PASS] 30c confirm -> not enough, 30c refunded, stays STANDBY
+  [PASS] confirm with nothing inserted -> not enough
+  [PASS] staged coins are capped
+  [PASS] K0 click +10c, K0 hold +20c
+  [PASS] READY: K1 click -> RUNNING
+  [PASS] RUNNING: K0 click -> PAUSED
+  [PASS] PAUSED: K0 click -> RUNNING
+  [PASS] K0 hold outside STANDBY adds no money
+  [PASS] K1 hold 2 stages while RUNNING -> force STOP
+  [PASS] ERROR clears staged coins
+  [PASS] K0 click in ERROR clears the fault
+ALL TWO-BUTTON TESTS PASSED

@@ -1,0 +1,94 @@
+% =============================================================================
+\section{System Analysis}
+\label{sec:analysis}
+% =============================================================================
+
+\subsection{Behaviour of the system}
+
+From the customer's point of view a washing session has three phases:
+
+\begin{enumerate}
+  \item \textbf{Payment.} The customer inserts coins one by one. The machine only needs to remember
+        the balance and compare it with 50\cent. Nothing mechanical happens.
+  \item \textbf{Washing.} After RUN, the machine owns a \emph{time budget} of 30 minutes. The
+        customer may pause and resume, but pausing does not buy extra time: the budget is consumed
+        by wall-clock time, not by motor time. This is the most important observation of the
+        analysis: \emph{the timer belongs to the session, not to the motor}.
+  \item \textbf{End.} The session ends when the budget is used up, or when the customer
+        deliberately confirms a stop by pressing STOP twice. A single accidental touch must not
+        cancel a paid cycle.
+\end{enumerate}
+
+\noindent Errors (e.g.\ the door is opened) can happen in any phase and must override everything else:
+the actuators are switched off first, then the user is informed by a blinking RLED.
+
+\noindent Two different kinds of information therefore have to be kept:
+
+\begin{itemize}
+  \item a small number of \textbf{qualitative modes} (paying, ready, washing, paused, error) that
+        decide how each button is interpreted and what the LEDs show $\Rightarrow$ the \emph{states}
+        of an FSM;
+  \item \textbf{quantitative data} (balance, remaining seconds, STOP window) that change inside a
+        mode $\Rightarrow$ \emph{extended state variables} kept in a context structure, used in guard
+        conditions.
+\end{itemize}
+
+\noindent This leads to an \emph{extended finite-state machine}: 6 states plus 5 context variables:
+\begin{center}
+  \small
+  \begin{tabular}{ll}
+    \code{coin_balance_cents}   & accumulated deposit \\
+    \code{remaining_cycle_sec}  & countdown of the washing cycle \\
+    \code{stop_press_count}     & STOP presses inside the current window (0 or 1) \\
+    \code{stop_window_timer_ms} & remaining time of the 1.5\,s double-press window \\
+    \code{active_error_flags}   & bitmask of active faults \\
+  \end{tabular}
+\end{center}
+
+\subsection{States}
+
+\begin{table}[H]
+  \centering
+  \caption{States of the control unit}
+  \label{tab:states}
+  \begin{tabularx}{\linewidth}{lL{2.5cm}Y}
+    \toprule
+    \textbf{State} & \textbf{LEDs} & \textbf{Meaning} \\
+    \midrule
+    \st{STANDBY}    & RLED ON, BLED OFF & Idle and available to serve; balance = 0; all actuators off,
+                                          door unlocked. Initial state after power-on. \\
+    \st{COLLECTING} & RLED ON, BLED OFF & Some money inserted but $< 50$\cent. Still ``available'' for the
+                                          user, so the LEDs are the same as STANDBY. \\
+    \st{READY}      & RLED OFF, BLED ON & Balance $\geq 50$\cent; waiting for RUN. More coins can still be
+                                          inserted. \\
+    \st{RUNNING}    & RLED OFF, BLED 1\,Hz & Washing: door locked, motor agitating or spinning, timer
+                                          counting down. \\
+    \st{PAUSED}     & RLED OFF, BLED ON & Motor, pump and valve off; door stays locked; \textbf{timer
+                                          still counting down}. \\
+    \st{ERROR}      & RLED 2\,Hz, BLED OFF & Safety fault: every actuator off and door unlocked; all
+                                          buttons and coins locked out until the fault is cleared. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Transition conditions (informal)}
+
+\begin{itemize}
+  \item \st{STANDBY}/\st{COLLECTING} $\rightarrow$ \st{COLLECTING} or \st{READY}: a coin is inserted;
+        the target depends on whether the new balance reaches 50\cent.
+  \item \st{READY} $\rightarrow$ \st{RUNNING}: RUN is pressed. The balance is cleared, the timer is
+        loaded with 1800\,s.
+  \item \st{RUNNING} $\leftrightarrow$ \st{PAUSED}: PAUSE / RUN. The timer is \emph{not} reset when
+        resuming.
+  \item \st{RUNNING}/\st{PAUSED} $\rightarrow$ \st{STANDBY}: the timer reaches 0, or STOP is pressed
+        twice within 1.5\,s.
+  \item \st{COLLECTING}/\st{READY} $\rightarrow$ \st{STANDBY}: STOP pressed twice (customer cancels;
+        deposit returned).
+  \item any state $\rightarrow$ \st{ERROR}: a fault is detected.
+  \item \st{ERROR} $\rightarrow$ previous context: the fault is cleared (PAUSED if a cycle was in
+        progress and time remains, otherwise STANDBY/COLLECTING/READY according to the balance).
+\end{itemize}
+
+\noindent Events that are not listed for a state (for example PAUSE in READY, or a coin in RUNNING) are
+\textbf{ignored}: the FSM stays in the same state and produces no output. This is checked
+systematically by test TC-27 (event-acceptance matrix).

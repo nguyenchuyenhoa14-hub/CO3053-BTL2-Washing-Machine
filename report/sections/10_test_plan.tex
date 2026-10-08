@@ -1,0 +1,104 @@
+% =============================================================================
+\section{Test Plan}
+\label{sec:testplan}
+% =============================================================================
+
+\subsection{Strategy}
+
+The test cases were written \emph{before} running them and are executed at two levels:
+
+\begin{enumerate}
+  \item \textbf{Automated host tests (PC).} The exact same FSM, debounce, blinker and gesture code is
+        compiled with \code{gcc} and driven by event sequences. A mock HAL records every output
+        (LED modes, motor, pump, door lock, returned coins). Time is simulated, so a 30-minute cycle is
+        tested in milliseconds and boundary times (e.g.\ 1499\,ms vs 1501\,ms) are exact.
+        Command: \code{make test test_hal test_gesture test_two_button test_ui_text}.
+  \item \textbf{Hardware tests (board).} The firmware is flashed on the WeAct STM32H750 and each scenario
+        is performed with K1 (or the UART keys). The LCD, the PE3 LED and the UART log are observed and
+        recorded (board photos and the demo video, Section~\ref{sec:results}).
+\end{enumerate}
+
+\noindent Requirement coverage: every functional requirement FR-01\dots FR-11 and every assumption
+A1\dots A10 is checked by at least one test case below; every transition T01\dots T22 is exercised by the
+automated suite.
+
+\subsection{System test cases}
+
+\begingroup
+\small
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{L{0.95cm}L{2.6cm}L{4.1cm}L{4.4cm}L{2.2cm}}
+  \caption{System test cases}\label{tab:testcases}\\
+  \toprule
+  \textbf{ID} & \textbf{Scenario} & \textbf{Input / steps (board)} & \textbf{Expected result} & \textbf{Req. / auto test} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{ID} & \textbf{Scenario} & \textbf{Input / steps (board)} & \textbf{Expected result} & \textbf{Req. / auto test} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endfoot
+  TC01 & Start machine & Power on / press NRST & STANDBY; RLED ON, BLED OFF; balance 000C; motor OFF, door unlocked
+       & FR-10 / TC-01, TC-31 \\
+  TC02 & Insert 10\cent & COIN10 (K1 click) & Balance = 10\cent; RLED stays ON; BLED OFF (COLLECTING / staged)
+       & FR-01 / TC-01, TC-31 \\
+  TC03 & Reach 50\cent & 20 + 20 + 10\cent{} (K1 double, double, click; then hold 1.2\,s to confirm) & READY; RLED OFF, BLED ON
+       & FR-02 / TC-02, TWO-BTN \\
+  TC04 & RUN with 30\cent & 10 + 20\cent{}, then RUN & Machine does not start; stays COLLECTING (board: ``NOT ENOUGH, REFUND 030C'', stays STANDBY)
+       & FR-02, A2 / TC-05, TWO-BTN \\
+  TC05 & RUN with 50\cent & 50\cent, RUN (K1 click in READY) & RUNNING; timer = 30:00 (demo 00:30); BLED 1\,Hz; balance 0; door locked; motor AGITATE
+       & FR-04, FR-05 / TC-04 \\
+  TC06 & Pause & PAUSE while running (K1 click) & PAUSED; motor OFF; BLED ON; \textbf{timer keeps counting down}
+       & FR-06 / TC-06, TC-07 \\
+  TC07 & Resume & RUN while paused (K1 click) & RUNNING; BLED 1\,Hz; timer continues from the current value (not reset)
+       & FR-07 / TC-06, TC-14 \\
+  TC08 & Timer expires & Let the cycle run to 0 & STANDBY; RLED ON; motor OFF; door unlocked
+       & FR-09 / TC-12, TC-21 \\
+  TC09 & Timer expires while paused & PAUSE and wait until 0 & STANDBY (paused machine does not keep the time)
+       & FR-06, FR-09 / TC-08, TC-29 \\
+  TC10 & STOP once & One STOP while running (K1 hold 0.6\,s, release) & Keeps running; nothing changes
+       & FR-08 / TC-09, TC-19, TC-23 \\
+  TC11 & STOP twice & Two STOPs within 1.5\,s (K1 hold to 1.2\,s) & Force stop $\rightarrow$ STANDBY, RLED ON, all OFF
+       & FR-08, A1 / TC-10, TC-11, TC-22 \\
+  TC12 & STOP twice, too slow & Two STOPs 1.501\,s apart & Not stopped; the second press counts as a new first press
+       & A1 / TC-22, TC-19 \\
+  TC13 & Insert 70\cent{} then RUN & 50 + 20\cent, RUN & Starts; balance cleared to 0; no refund
+       & FR-03 / TC-03, TC-04 \\
+  TC14 & Coins during washing & COIN while RUNNING / PAUSED & Coin ignored; balance stays 0
+       & A3 / TC-15 \\
+  TC15 & Cancel before RUN & READY with 60\cent, STOP $\times$2 & STANDBY; 60\cent{} returned (``CANCELLED, RETURN 060C'')
+       & A6 / TC-18, TC-32 \\
+  TC16 & Error & Fault while RUNNING (K1 double-click) & ERROR; RLED 2\,Hz; BLED OFF; motor/pump OFF; door unlocked; buttons and coins locked out
+       & FR-11 / TC-13, TC-16, TC-17 \\
+  TC17 & Error recovery & Clear fault (K1 click) & PAUSED, timer kept counting during fault; RUN resumes
+       & A8 / TC-33, TC-34 \\
+  TC18 & Wash phases & Run a full cycle & AGITATE for first 5/6, then SPIN + PUMP for last 1/6
+       & A9 / TC-26, TC-28 \\
+  TC19 & LED frequencies & Observe PE3 for 10\,s in RUNNING and in ERROR & $\approx$10 blinks (1\,Hz) and $\approx$20 blinks (2\,Hz)
+       & FR-10 / HAL-03 \\
+  TC20 & Button bounce & Press K1 quickly many times & One event per press; no spurious double events
+       & NFR-01 / HAL-01, gesture tests \\
+\end{longtable}
+\endgroup
+
+\noindent\textit{Note on TC04 on the board.} With the single-key front panel the coins are staged and
+confirmed by a 1.2\,s hold (Section~\ref{sec:hardware}); confirming with $<50$\cent{} is the board
+equivalent of pressing RUN without enough money. The FSM behaviour itself (RUN ignored in COLLECTING) is
+verified by automated test TC-05.
+
+\subsection{Test environment}
+
+\begin{table}[H]
+  \centering
+  \caption{Test environment}
+  \label{tab:testenv}
+  \begin{tabularx}{\linewidth}{lY}
+    \toprule
+    Host & Linux, \code{gcc -std=c99 -Wall -Wextra -Werror -pedantic -O2} \\
+    Target & WeAct STM32H750VBT6, \code{arm-none-eabi-gcc -mcpu=cortex-m7 -Os}, flashed by USB-DFU \\
+    Observation & 0.96$''$ LCD, PE3 LED, USART1 log at 115\,200 baud (\code{picocom}), phone camera \\
+    Firmware build & Demo build (cycle = 30\,s) for scenarios TC05--TC18; \code{FULL_CYCLE=1} build for one full 30-minute run \\
+    \bottomrule
+  \end{tabularx}
+\end{table}

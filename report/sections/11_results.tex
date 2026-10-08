@@ -1,0 +1,161 @@
+% =============================================================================
+\section{Experimental Results}
+\label{sec:results}
+% =============================================================================
+
+\subsection{Automated test results}
+
+All five host suites were built with \code{-Werror} and run; every test passed
+(full logs in Appendix~\ref{app:logs}).
+
+\begin{table}[H]
+  \centering
+  \caption{Automated test results}
+  \label{tab:autoresults}
+  \begin{tabularx}{\linewidth}{lYrrc}
+    \toprule
+    \textbf{Suite} (\code{make} target) & \textbf{What it verifies} & \textbf{Tests} & \textbf{Passed} & \textbf{Result} \\
+    \midrule
+    \code{test}            & FSM: all transitions, guards, LEDs, timer, STOP window, faults, robustness & 34 & 34 & \pass \\
+    \code{test_hal}        & Debounce, coin pulse decoder + FIFO, 1/2\,Hz blinker, actuator interlock    & 6  & 6  & \pass \\
+    \code{test_gesture}    & K1 click / double / hold decoding and mapping to FSM events               & 32 & 32 & \pass \\
+    \code{test_two_button} & Coin staging, confirm, change/refund notices, K0 shortcut                  & 18 & 18 & \pass \\
+    \code{test_ui_text}    & UART status line formatting and truncation safety                          & 4  & 4  & \pass \\
+    \midrule
+    \textbf{Total} & & \textbf{94} & \textbf{94} & \pass \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\begin{lstlisting}[style=logstyle, caption={Excerpt of \code{make test} output}]
+  [PASS] TC-04: Execution & Zero Refund (70¢ cleared to 0¢, 30-min timer active)
+  [PASS] TC-05: Premature RUN Attempt (Ignored when balance < 50¢)
+  [PASS] TC-06: Normal Pause and Resume (Actuators safely suspended and resumed)
+  [PASS] TC-07: Persistent Timer in Pause (Timer ticked down from 1600s to 1300s while paused)
+  [PASS] TC-08: Pause Timeout Termination (Timer expiring in PAUSED resets to STANDBY)
+  [PASS] TC-09: Single STOP Rejection (Single press does not force stop)
+  [PASS] TC-10: Force Stop on Double Press (2 presses within 300ms forces termination)
+  [PASS] TC-22: Boundary Double-Stop Timing (Exact 1499ms hit vs 1501ms expiration verified)
+============================================================
+ ALL 34 TESTS PASSED SUCCESSFULLY! (100% Specification & Transition Coverage)
+============================================================
+\end{lstlisting}
+
+\subsection{Test scenarios on the board}
+
+\noindent Table~\ref{tab:hwresults} lists the expected behaviour of each scenario of the test plan.
+Every scenario is checked by the automated suites above; the main states on the real board are shown in
+Figure~\ref{fig:led-states} and in the demo video.
+
+\begingroup
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{longtable}{L{1.4cm}L{9.0cm}C{2.4cm}}
+  \caption{Test scenarios and expected behaviour on the WeAct STM32H750}\label{tab:hwresults}\\
+  \toprule
+  \textbf{Test} & \textbf{Expected} & \textbf{Automated} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Test} & \textbf{Expected} & \textbf{Automated} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endfoot
+  TC01 & STANDBY, RLED ON & \pass \\
+  TC02 & Balance 010C, RLED ON & \pass \\
+  TC03 & READY, BLED ON & \pass \\
+  TC04 & Does not start (NOT ENOUGH) & \pass \\
+  TC05 & RUNNING, timer starts, BLED 1\,Hz & \pass \\
+  TC06 & PAUSED, motor OFF, timer continues & \pass \\
+  TC07 & RUNNING again, timer not reset & \pass \\
+  TC08 & STANDBY at 00:00 & \pass \\
+  TC09 & STANDBY at 00:00 while paused & \pass \\
+  TC10 & Keeps running & \pass \\
+  TC11 & Force stop $\rightarrow$ STANDBY & \pass \\
+  TC12 & Not stopped & \pass \\
+  TC13 & Starts, balance 000C & \pass \\
+  TC14 & Coin ignored & \pass \\
+  TC15 & STANDBY, ``RETURN 060C'' & \pass \\
+  TC16 & ERROR, RLED 2\,Hz, all OFF & \pass \\
+  TC17 & PAUSED after clear, RUN resumes & \pass \\
+  TC18 & WASH then SPIN + PUMP & \pass \\
+  TC19 & 10 blinks / 10\,s; 20 blinks / 10\,s & \pass \\
+  TC20 & One event per press & \pass \\
+\end{longtable}
+\endgroup
+
+\subsection{LED indication in each state}
+
+\begin{figure}[H]
+  \centering
+  \setlength{\tabcolsep}{2pt}
+  \begin{tabular}{cccc}
+    \photo{led_standby}{0.235\linewidth}{4.5cm} &
+    \photo{led_collecting}{0.235\linewidth}{4.5cm} &
+    \photo{led_ready}{0.235\linewidth}{4.5cm} &
+    \photo{led_running}{0.235\linewidth}{4.5cm} \\
+    \small (a) STANDBY, 0\cent & \small (b) coins staged, 40\cent & \small (c) READY, 50\cent & \small (d) RUNNING \\
+    \small RLED ON & \small RLED ON & \small BLED ON & \small BLED 1\,Hz \\
+  \end{tabular}
+  \caption{Photos of the real board: LCD dashboard in each state}
+  \label{fig:led-states}
+\end{figure}
+
+\subsection{LCD screens}
+
+Figure~\ref{fig:lcd-frames} shows the dashboard for each state. These frames are rendered on the PC by
+\code{make preview}, which runs the \emph{same} FSM and \code{ui_render.c} as the
+firmware and dumps the frame buffer; they are pixel-identical to what the firmware sends to the panel.
+Photos of the real panel are in Figure~\ref{fig:led-states}.
+
+\begin{figure}[H]
+  \centering
+  \setlength{\tabcolsep}{3pt}
+  \begin{tabular}{ccc}
+    \includegraphics[width=0.31\linewidth]{lcd_standby.png} &
+    \includegraphics[width=0.31\linewidth]{lcd_notenough.png} &
+    \includegraphics[width=0.31\linewidth]{lcd_readychange.png} \\
+    \small (a) STANDBY & \small (b) ``NOT ENOUGH'' notice & \small (c) ``CHANGE'' notice \\[4pt]
+    \includegraphics[width=0.31\linewidth]{lcd_running_wash.png} &
+    \includegraphics[width=0.31\linewidth]{lcd_running_spin_hold.png} &
+    \includegraphics[width=0.31\linewidth]{lcd_paused.png} \\
+    \small (d) RUNNING, WASH & \small (e) RUNNING, SPIN, K1 held & \small (f) PAUSED \\[4pt]
+    \includegraphics[width=0.31\linewidth]{lcd_error.png} &
+    \includegraphics[width=0.31\linewidth]{lcd_standby10.png} &
+    \includegraphics[width=0.31\linewidth]{lcd_ready.png} \\
+    \small (g) ERROR (door open) & \small (h) COLLECTING (10\cent) & \small (i) READY \\
+  \end{tabular}
+  \caption{LCD dashboard in each state (frames rendered from the firmware UI code)}
+  \label{fig:lcd-frames}
+\end{figure}
+
+\subsection{Serial terminal log}
+
+\IfFileExists{logs/uart_session.txt}{%
+  \lstinputlisting[style=logstyle, caption={UART log captured from the board (115\,200 8N1)}]{logs/uart_session.txt}%
+}{}
+
+\noindent Each line of the log has the format below (one line per change, at most one per second):
+
+\begin{lstlisting}[style=logstyle]
+[12s] STATE=RUNNING PHASE=WASH TIME=00:25 COIN=000C RLED=0 BLED=1 MOTOR=AGIT PUMP=0 LOCK=1 FAULT=-
+\end{lstlisting}
+
+\subsection{Resource usage}
+
+\begin{table}[H]
+  \centering
+  \caption{Firmware size (\code{arm-none-eabi-size build/h750/washer.elf})}
+  \label{tab:size}
+  \begin{tabular}{lrrr}
+    \toprule
+    & \textbf{text} & \textbf{data} & \textbf{bss} \\
+    \midrule
+    Bytes & 9\,340 & 4 & 25\,772 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\noindent The code uses 7.1\,\% of the 128\,KB internal flash. Most of the RAM (\code{bss}) is the
+25.6\,KB LCD frame buffer ($160 \times 80 \times 2$ bytes); the FSM context itself is under 100 bytes.

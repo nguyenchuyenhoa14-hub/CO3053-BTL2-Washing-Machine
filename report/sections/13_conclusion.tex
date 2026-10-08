@@ -1,0 +1,28 @@
+% =============================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+% =============================================================================
+
+The team designed and implemented the control unit of a coin-operated washing machine on the WeAct
+STM32H750 board. In summary:
+
+\begin{itemize}
+  \item \textbf{FSM.} A 6-state extended FSM (STANDBY, COLLECTING, READY, RUNNING, PAUSED, ERROR) with 22
+        documented transitions was designed from the requirements and implemented as portable C99 code with
+        no hardware dependency.
+  \item \textbf{Coin accumulation.} 10/20/50\cent{} coins are accumulated; READY is reached at 50\cent; the
+        balance is cleared on RUN without refund.
+  \item \textbf{RUN / PAUSE / STOP.} RUN starts and resumes, PAUSE suspends the actuators, and STOP requires
+        two presses within 1.5\,s.
+  \item \textbf{Timer.} The 30-minute countdown is derived from a 1\,ms SysTick without any blocking delay
+        and keeps counting while paused; the cycle ends automatically.
+  \item \textbf{LED indication.} RLED/BLED follow the specification (ON, 1\,Hz, 2\,Hz) through a
+        non-blocking blinker.
+  \item \textbf{Verification.} 94 automated test cases pass on the PC with the same source code as the
+        firmware, and the main scenarios were demonstrated on the real board
+        (Figure~\ref{fig:led-states} and the demo video).
+\end{itemize}
+
+\noindent Possible extensions are a real pulse-output coin acceptor on a GPIO (the decoder already exists),
+relay outputs for the motor/pump/valve/lock, real door and water-level sensors for the ERROR state, and
+saving the remaining time to backup memory to survive a power loss.

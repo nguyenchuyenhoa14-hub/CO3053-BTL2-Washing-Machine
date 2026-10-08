@@ -1,0 +1,67 @@
+% =============================================================================
+\section{Discussion}
+\label{sec:discussion}
+% =============================================================================
+
+\subsection{Problems met and how they were solved}
+
+\paragraph{Button bouncing.} A mechanical contact bounces for several milliseconds, so a raw read
+would turn one press into several RUN/PAUSE toggles. The integrating debouncer
+(Section~\ref{sec:impl}) only accepts a new level after 30\,ms of stability and emits exactly one
+latched edge. On the K1 key, the board's RC filter (10\,k$\Omega$/100\,nF, $\tau = 1$\,ms) helps, but the
+software filter is what makes the behaviour deterministic (HAL-01, TC20).
+
+\paragraph{Timer handling.} The first idea of many students is ``PAUSE stops the timer''. The
+specification says the opposite. Making the timer a context variable decremented by the \emph{same}
+handler in RUNNING and PAUSED removed the risk of the two paths diverging. A second subtle point is the
+end condition: the transition is taken on the tick that goes from 1 to 0, so the cycle lasts exactly
+$T$ ticks and the FSM never sits in RUNNING with $t = 0$.
+
+\paragraph{Avoiding blocking delays.} With \code{HAL_Delay()} the LED blinking alone would block the CPU
+half of the time and inputs would be missed. Every delay was replaced by a counter advanced by the 1\,ms
+tick. The catch-up loop (\code{while (processed != now)}) keeps the timing exact even when the main loop
+is temporarily slow, e.g.\ while a full LCD frame is sent over SPI.
+
+\paragraph{ISR / main-loop race.} An earlier version updated the FSM from inside the SysTick ISR while the
+main loop also dispatched button events, so two contexts could modify the FSM at the same time. The final
+design keeps the ISR trivial (\code{g_millis++}) and runs \emph{all} FSM work in the main loop, which
+removes the race without disabling interrupts.
+
+\paragraph{Double-press STOP.} The difficulty is to separate ``two presses'' from ``two unrelated
+presses''. A 1.5\,s sliding window implemented with a countdown solves it, and the boundary is tested at
+1499\,ms and 1501\,ms. On the board, a single key also had to produce two STOPs; the two-stage hold
+(0.6\,s, 1.2\,s) does this and the second stage is guaranteed to fall inside the window.
+
+\paragraph{One key for seven inputs.} The WeAct board exposes only K1 to software (BOOT0 is not a GPIO on
+the H7). A gesture decoder (click, double-click, two-stage hold) plus state-dependent mapping gives every
+command, without changing the FSM. Its cost is a 300\,ms delay before a single click is confirmed
+(to distinguish it from a double-click).
+
+\paragraph{State transitions.} Writing the transition table first (Table~\ref{tab:transitions}) and then
+one \code{enter_xxx()} function per state made the LED rules impossible to forget on any incoming
+transition. Test TC-27 enumerates all (state, event) pairs to check that unspecified events are ignored.
+
+\paragraph{LCD refresh.} Redrawing 25.6\,KB at every loop iteration would waste time and cause flicker.
+The firmware builds a small ``view'' structure and redraws only if it differs from the last drawn one, so
+the panel is refreshed at most a few times per second. The backlight faded out when driven as a plain GPIO
+on this board; driving PE10 with a 10\,kHz PWM from TIM1 fixed it.
+
+\subsection{Limitations}
+
+\begin{itemize}
+  \item \textbf{No real coin acceptor.} Coins are simulated with K1 gestures, external buttons or UART keys.
+        The pulse-train decoder for a real acceptor is implemented and unit-tested but not wired.
+  \item \textbf{No real motor or relays.} Motor, pump, valve and door-lock commands are only displayed. A real
+        machine would need relay/driver hardware and feedback sensors.
+  \item \textbf{Only one physical LED.} RLED and BLED are drawn on the LCD; the PE3 LED shows their OR.
+        Two separate LEDs could be added on free GPIOs without software changes (only the callbacks).
+  \item \textbf{Error state is simulated.} Faults are injected by a K1 double-click; there is no real door
+        switch, water-level or current sensor.
+  \item \textbf{Time scaling for the demo.} The default board build uses a 30\,s cycle so the whole cycle can be
+        shown; the 30-minute behaviour is verified by the host tests and by the \code{FULL_CYCLE=1} build.
+  \item \textbf{No power-loss persistence.} A reset during a paid cycle loses the remaining time; a real
+        product would store it in backup SRAM or flash.
+  \item \textbf{Front-panel extensions.} The coin staging/confirm step and the ``change'' notice on the board
+        go beyond the statement (which says READY as soon as 50\cent{} is reached and no refund). They are a
+        UI layer only; the FSM follows the statement and its tests are unchanged.
+\end{itemize}

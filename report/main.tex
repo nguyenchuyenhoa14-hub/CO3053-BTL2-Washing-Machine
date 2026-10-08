@@ -1,0 +1,164 @@
+% =============================================================================
+%  CO3053 Embedded Systems - Assignment 2
+%  Coin-Operated Washing Machine Control Unit on WeAct STM32H750VBT6
+%
+%  Build:  cd report && latexmk -pdf main.tex      (or: make)
+%  Overleaf: upload the whole report/ folder, compiler = pdfLaTeX.
+%  Images:  drop the photos listed in images/README.md into images/.
+%           Missing photos are drawn as a framed placeholder, so the
+%           document always compiles.
+% =============================================================================
+\documentclass{hcmut-report}
+
+% ---- Extra packages ---------------------------------------------------------
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{textcomp}
+\usepackage{xurl}
+\usepackage{tikz}
+\usepackage[most]{tcolorbox}
+\usepackage{qrcode}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,shapes.misc,calc,fit,backgrounds}
+
+\graphicspath{{images/}{images/generated/}}
+
+% ---- Colours ----------------------------------------------------------------
+\definecolor{codebg}{RGB}{247,247,247}
+\definecolor{codekw}{RGB}{0,0,160}
+\definecolor{codecm}{RGB}{0,120,0}
+\definecolor{codestr}{RGB}{160,0,0}
+\definecolor{stIdle}{RGB}{255,228,228}
+\definecolor{stReady}{RGB}{222,235,255}
+\definecolor{stRun}{RGB}{220,245,220}
+\definecolor{stPause}{RGB}{255,245,205}
+\definecolor{stErr}{RGB}{255,215,180}
+\definecolor{passgreen}{RGB}{0,130,0}
+
+% ---- Listings ---------------------------------------------------------------
+\lstdefinestyle{cstyle}{
+  language=C,
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{codekw}\bfseries,
+  commentstyle=\color{codecm}\itshape,
+  stringstyle=\color{codestr},
+  backgroundcolor=\color{codebg},
+  frame=single, rulecolor=\color{gray!50},
+  numbers=left, numberstyle=\tiny\color{gray}, numbersep=6pt,
+  breaklines=true, breakatwhitespace=true,
+  showstringspaces=false, tabsize=4,
+  columns=fullflexible, keepspaces=true,
+  morekeywords={uint32_t,uint8_t,bool,true,false,wm_context_t,wm_state_t,wm_event_t,
+                hal_button_t,hal_led_blinker_t,hal_gesture_t,hal_gesture_ctx_t},
+  literate={¢}{{\textcent}}1 {→}{{$\rightarrow$}}1 {≥}{{$\geq$}}1
+}
+\lstdefinestyle{logstyle}{
+  basicstyle=\ttfamily\scriptsize,
+  backgroundcolor=\color{codebg},
+  frame=single, rulecolor=\color{gray!50},
+  breaklines=true, columns=fullflexible, keepspaces=true,
+  literate={¢}{{\textcent}}1
+}
+\lstset{style=cstyle}
+
+% ---- Helper macros ----------------------------------------------------------
+% \photo{basename}{width}{what the photo must show}
+%   Looks for images/<basename>.{jpg,jpeg,png,pdf}; draws a placeholder if absent.
+\newcommand{\photoplaceholder}[3]{%
+  \fbox{\parbox[c][#3][c]{#2}{\centering
+    \textcolor{red}{\textbf{[IMAGE NEEDED]}}\\[2pt]
+    \scriptsize\texttt{images/\detokenize{#1}}\\(.jpg / .png)}}}
+\newcommand{\photo}[3]{%
+  \IfFileExists{images/#1.jpg}{\includegraphics[width=#2]{images/#1.jpg}}{%
+  \IfFileExists{images/#1.jpeg}{\includegraphics[width=#2]{images/#1.jpeg}}{%
+  \IfFileExists{images/#1.png}{\includegraphics[width=#2]{images/#1.png}}{%
+  \IfFileExists{images/#1.pdf}{\includegraphics[width=#2]{images/#1.pdf}}{%
+  \photoplaceholder{#1}{#2}{#3}}}}}}
+
+% \fillin{text}: a value the team must still fill in after testing on the board
+\newcommand{\fillin}[1]{\textcolor{red}{\textbf{[#1]}}}
+\newcommand{\pass}{\textcolor{passgreen}{\textbf{PASS}}}
+\newcommand{\cent}{\textcent}
+\newcommand{\st}[1]{\texttt{\textbf{#1}}}
+\DeclareRobustCommand{\code}[1]{\texttt{\detokenize{#1}}}
+
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+
+\setlist{itemsep=2pt, topsep=4pt}
+\setlength{\emergencystretch}{3em}
+
+% ---- Cover page data --------------------------------------------------------
+\coursename{Embedded Systems (CO3053)}
+\reporttype{Assignment 2 Report}
+\title{Coin-Operated Washing Machine Control Unit on the WeAct STM32H750}
+\advisor{Assoc. Prof. Phạm Hoàng Anh}
+\stuname{%
+  \begin{tabular}[t]{ll}
+    Võ Hoàng Nguyên         & 2352844 \\
+    Nguyễn Quốc Thắng       & 2353122 \\
+    Ngô Nguyễn Thành Nhân   & 2352849
+  \end{tabular}}
+\reporttime{October 2026}
+
+% =============================================================================
+\begin{document}
+
+\coverpage
+
+% ---- Video demo banner (first thing after the cover) ------------------------
+\newcommand{\demourl}{https://youtube.com/shorts/ZFKOPDyJHqQ?feature=share}
+\begin{tcolorbox}[enhanced, colback=red!6, colframe=red!75!black,
+  boxrule=1.5pt, arc=3mm, left=4mm, right=4mm, top=3mm, bottom=3mm,
+  fonttitle=\bfseries\large, title={$\blacktriangleright$\ VIDEO DEMO --- running on the real board},
+  attach boxed title to top center={yshift=-3mm},
+  boxed title style={colback=red!75!black, arc=2mm}]
+  \begin{minipage}[c]{0.70\linewidth}
+    \large Demonstration video of the coin-operated washing machine
+    control unit running on the real board.\\[6pt]
+    \normalsize\textbf{Watch on YouTube:}\\
+    \href{\demourl}{\textcolor{blue}{\underline{\texttt{\detokenize{https://youtube.com/shorts/ZFKOPDyJHqQ}}}}}\\[4pt]
+    \small\textit{(Click the link, or scan the QR code with a phone.)}
+  \end{minipage}\hfill
+  \begin{minipage}[c]{0.26\linewidth}\centering
+    \href{\demourl}{\qrcode[height=3cm]{https://youtube.com/shorts/ZFKOPDyJHqQ}}
+  \end{minipage}
+\end{tcolorbox}
+\vspace{1em}
+
+\tableofcontents
+\clearpage
+\listoffigures
+\listoftables
+\clearpage
+
+\input{sections/01_introduction}
+\input{sections/02_requirements}
+\input{sections/03_analysis}
+\input{sections/04_fsm_design}
+\input{sections/05_hardware}
+\input{sections/06_architecture}
+\input{sections/07_timing}
+\input{sections/08_implementation}
+\input{sections/09_flowcharts}
+\input{sections/10_test_plan}
+\input{sections/11_results}
+\input{sections/12_discussion}
+\input{sections/13_conclusion}
+
+\clearpage
+\nocite{*}
+\bibliographystyle{unsrtnat}
+\bibliography{references}
+
+\clearpage
+\appendix
+\input{sections/14_appendix}
+
+\end{document}
